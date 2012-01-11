@@ -13,7 +13,7 @@ log = get_default_logger()
 @task
 def startHarvest(config):
     lrUrl = config['lrUrl']
-    r = redis.StrictRedis(host=config['redis']['host'], port=config['redis']['port'], db=config['redis']['db'])
+    r = redis.StrictRedis(host=config['redis'] ['host'], port=config['redis']['port'], db=config['redis']['db'])
     fromDate = None 
     try:
         fromDate = r.get('lastHarvestTime')
@@ -55,7 +55,6 @@ def harvestData(lrUrl , config):
         harvestData.delay(lrUrl,config)                                     
 @task
 def emptyValidate(envelope,config):
-    raise Exception("Got Here")
     send_task(config['insertTask'],[envelope,config])        
 @task
 def insertDocumentMongo(envelope, config):
