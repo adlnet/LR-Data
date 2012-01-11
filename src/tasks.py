@@ -2,6 +2,7 @@ import json
 import urllib2
 import urllib
 import urlparse
+import couchdb
 import os
 from pymongo import Connection
 from celery.task import task
@@ -59,12 +60,24 @@ def emptyValidate(envelope,config):
 @task
 def insertDocumentMongo(envelope, config):
     try:
-        con = Connection(config['host'],config['port'])
-        db = con[config['database']]
-        collection = db[config['collection']]   
+        conf = config['mongodb']
+        con = Connection(conf['host'],conf['port'])
+        db = con[conf['database']]
+        collection = db[conf['collection']]   
         del envelope['_rev']
         del envelope['_id']
         collection.insert(envelope)
     except (Exception), exc:
         log.error("Error writing to mongo")
         processHarvestResult.retry(exc)    
+@task
+def insertDataCouchdb(envelope,config):
+    try:
+        conf = config['couchdb']
+        db = couchdb.Database(conf['dbUrl'])
+        del envelope['_rev']
+        del envelope['_id']
+        db.save(envelope)
+    except (Exception), exc:
+        log.error("Error writing to mongo")
+        processHarvestResult.retry(exc)        

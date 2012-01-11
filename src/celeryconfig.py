@@ -1,10 +1,15 @@
 from datetime import timedelta
 config = {
 	"lrUrl": "http://lrdev02.learningregistry.org/harvest/listrecords",
-	"database":"lr",
-	"collection":"envelope",
-	"host": "localhost",
-	"port": 27017,
+	"mongodb":{	
+		"database":"lr",
+		"collection":"envelope",
+		"host": "localhost",
+		"port": 27017,
+	},
+	"couchdb"{
+		"dbUrl":"http://localhost:5984/lr-data"
+	}
 	"insertTask":"tasks.insertDocumentMongo",
 	"validationTask":"tasks.emptyValidate",
 	"redis":{
