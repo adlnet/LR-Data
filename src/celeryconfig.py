@@ -7,11 +7,11 @@ config = {
 		"host": "localhost",
 		"port": 27017,
 	},
-	"couchdb"{
+	"couchdb":{
 		"dbUrl":"http://localhost:5984/lr-data"
-	}
-	"insertTask":"tasks.insertDocumentMongo",
-	"validationTask":"tasks.emptyValidate",
+	},
+	"insertTask":"tasks.save.insertDocumentMongo",
+	"validationTask":"tasks.validate.emptyValidate",
 	"redis":{
 		"host":"localhost",
 		"port":6379,
@@ -19,7 +19,7 @@ config = {
 	}
 }
 # List of modules to import when celery starts.
-CELERY_IMPORTS = ("tasks",)
+CELERY_IMPORTS = ("tasks.harvest","tasks.save","tasks.validate")
 
 ## Result store settings.
 #CELERY_RESULT_BACKEND = "database"
@@ -37,7 +37,7 @@ CELERYD_CONCURRENCY = 10
 
 CELERYBEAT_SCHEDULE = {
     "harvestLR": {
-        "task": "tasks.startHarvest",
+        "task": "tasks.harvest.startHarvest",
         "schedule": timedelta(minutes=1),
         "args": (config,)
     },
