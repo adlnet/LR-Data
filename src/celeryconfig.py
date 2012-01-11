@@ -1,7 +1,18 @@
 from datetime import timedelta
-import json
-with open('config.json','r') as f:
-	config = json.load(f)
+config = {
+	"lrUrl": "http://lrdev02.learningregistry.org/harvest/listrecords",
+	"database":"lr",
+	"collection":"envelope",
+	"host": "localhost",
+	"port": 27017,
+	"insertTask":"tasks.insertDocumentMongo",
+	"validationTask":"tasks.emptyValidate",
+	"redis":{
+		"host":"localhost",
+		"port":6379,
+		"db":0
+	}
+}
 # List of modules to import when celery starts.
 CELERY_IMPORTS = ("tasks",)
 
