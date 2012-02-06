@@ -30,8 +30,9 @@ def startHarvest(config):
                                  urlParts[2],
                                  urlParts[3],
                                  newQuery,
-                                 urlParts[5]))                               
+                                 urlParts[5]))           
     harvestData.delay(lrUrl,config)
+    return lrUrl                        
     
 @task
 def harvestData(lrUrl , config):    
