@@ -1,6 +1,6 @@
 from datetime import timedelta
 config = {
-	"lrUrl": "http://lrdev02.learningregistry.org/harvest/listrecords",
+	"lrUrl": "http://alpha.learningregistry.org/harvest/listrecords",
 	"mongodb":{	
 		"database":"lr",
 		"collection":"envelope",
@@ -10,7 +10,13 @@ config = {
 	"couchdb":{
 		"dbUrl":"http://localhost:5984/lr-data"
 	},
-	"insertTask":"tasks.save.insertDocumentMongo",
+	'elasticsearch':{
+		"host":"localhost",
+		"port":9200,
+		"index":"lr",
+		"index-type":"lr"
+	},
+	"insertTask":"tasks.save.insertDocumentElasticSearch",
 	"validationTask":"tasks.validate.emptyValidate",
 	"redis":{
 		"host":"localhost",
