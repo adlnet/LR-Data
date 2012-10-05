@@ -56,17 +56,29 @@ def insertDocumentSolr(envelope, config):
 
 @task
 def insertLRInterface(envelope, config):
+    if 'keys' in envelope:
+        for k in envelope['keys']:
+            saveToNeo.delay((k, config))
+            cassandra_data = dict(resource_url=envelope['resource_locator'], doc_id=envelope['doc_ID'], submitter=envelope['identity']['submitter'], keyword=k)
+            saveToCassandra.delay((cassandra_data, config))
+
+    else:
+        print(envelope)
+
+
+@task
+def saveToCassandra(data, config):
     r = redis.StrictRedis(host=config['redis']['host'], port=config['redis']['port'], db=config['redis']['db'])
     pool = ConnectionPool('lr')
     cf = ColumnFamily(pool, 'contentobjects')
+    id = r.incr('cassandraid')
+    cf.insert(id, data)
+
+
+@task
+def saveToNeo(keyword, config):
+    r = redis.StrictRedis(host=config['redis']['host'], port=config['redis']['port'], db=config['redis']['db'])
     gdb = GraphDatabase("http://localhost:7474/db/data/")
-    if 'keys' in envelope:
-        for k in envelope['keys']:
-            if not r.sismember('topics', k):
-                r.sadd('topics', k)
-                gdb.nodes.create(**{"emaiL": k, "topic": True})
-            id = r.incr('cassandraid')
-            print(envelope)
-            cf.insert(id, dict(resource_url=envelope['resource_locator'], doc_id=envelope['doc_ID'], submitter=envelope['identity']['submitter'], keyword=k))
-    else:
-        print(envelope)
+    if not r.sismember('topics', keyword):
+        r.sadd('topics', keyword)
+        gdb.nodes.create(**{"emaiL": keyword, "topic": True})
