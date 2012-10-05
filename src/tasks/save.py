@@ -4,9 +4,11 @@ from pymongo import Connection
 from celery.task import task
 from celery.log import get_default_logger
 import redis
+import requests
 from neo4jrestclient.client import GraphDatabase
 from pycassa.pool import ConnectionPool
 from pycassa.columnfamily import ColumnFamily
+from BeautifulSoup import BeautifulSoup
 log = get_default_logger()
 
 
@@ -58,9 +60,19 @@ def insertDocumentSolr(envelope, config):
 def insertLRInterface(envelope, config):
     if 'keys' in envelope:
         for k in envelope['keys']:
-            saveToNeo.delay((k, config))
+            saveToNeo.delay(k, config)
+            title = envelope['resource_locator']
+            try:
+                headers = requests.head(title)
+                if headers.headers['content-type'] == 'text/html':
+                    fullPage = requests.get(title)
+                    soup = BeautifulSoup(fullPage.content)
+                    title = soup.html.head.title.string
+            except Exception:
+                pass  # expected for invalid URLs
             cassandra_data = dict(resource_url=envelope['resource_locator'], doc_id=envelope['doc_ID'], submitter=envelope['identity']['submitter'], keyword=k)
-            saveToCassandra.delay((cassandra_data, config))
+            cassandra_data['title'] = title
+            saveToCassandra.delay(cassandra_data, config)
 
     else:
         print(envelope)
