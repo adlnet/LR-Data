@@ -54,4 +54,4 @@ All configuration is done in the src/celeryconfig.py file.  For information of c
 
 set `insertTask` to be the celery task you wish to use to save the data and modify `validationTask` to be your validation task
 #Startup
-To start run `celryd -B` from the source directory.  To run as a deamon follow these [instructions](http://ask.github.com/celery/cookbook/daemonizing.html)
+To start run `celeryd -B` from the source directory.  To run as a deamon follow these [instructions](http://ask.github.com/celery/cookbook/daemonizing.html)
