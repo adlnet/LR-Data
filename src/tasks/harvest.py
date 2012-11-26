@@ -34,6 +34,7 @@ def startHarvest(config):
                                  newQuery,
                                  urlParts[5]))
     harvestData.delay(lrUrl, config)
+    print(lrUrl)
     return lrUrl
 
 
