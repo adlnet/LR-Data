@@ -130,4 +130,5 @@ def save_display_data(pipe, parts, data):
             title = soup.html.head.title.string
     except Exception as e:
         print(e)
+    print({'resource_locator': data['resource_locator'], 'title': title})
     pipe.hmset(data['resource_locator'], {'resource_locator': data['resource_locator'], 'title': title})
