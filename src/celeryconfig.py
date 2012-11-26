@@ -16,7 +16,7 @@ config = {
         "index": "lr",
         "index-type": "lr"
     },
-    "insertTask": "tasks.save.insertLRInterface",
+    "insertTask": "tasks.save.createRedisIndex",
     "validationTask": "tasks.validate.emptyValidate",
     "redis": {
         "host": "localhost",

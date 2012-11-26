@@ -9,6 +9,7 @@ from neo4jrestclient.client import GraphDatabase
 from pycassa.pool import ConnectionPool
 from pycassa.columnfamily import ColumnFamily
 from BeautifulSoup import BeautifulSoup
+from urlparse import urlparse
 log = get_default_logger()
 
 
@@ -70,7 +71,10 @@ def insertLRInterface(envelope, config):
                     title = soup.html.head.title.string
             except Exception:
                 pass  # expected for invalid URLs
-            cassandra_data = dict(resource_url=envelope['resource_locator'], doc_id=envelope['doc_ID'], submitter=envelope['identity']['submitter'], keyword=k)
+            cassandra_data = dict(resource_url=envelope['resource_locator'],
+                                  doc_id=envelope['doc_ID'],
+                                  submitter=envelope['identity']['submitter'],
+                                  keyword=k)
             cassandra_data['title'] = title
             saveToCassandra.delay(cassandra_data, config)
 
@@ -81,7 +85,7 @@ def insertLRInterface(envelope, config):
 @task
 def saveToCassandra(data, config):
     r = redis.StrictRedis(host=config['redis']['host'], port=config['redis']['port'], db=config['redis']['db'])
-    pool = ConnectionPool('lr')
+    pool = ConnectionPool('lr', server_list=['localhost', '10.10.1.47'])
     cf = ColumnFamily(pool, 'contentobjects')
     id = r.incr('cassandraid')
     cf.insert(id, data)
@@ -93,4 +97,37 @@ def saveToNeo(keyword, config):
     gdb = GraphDatabase("http://localhost:7474/db/data/")
     if not r.sismember('topics', keyword):
         r.sadd('topics', keyword)
-        gdb.nodes.create(**{"emaiL": keyword, "topic": True})
+        gdb.nodes.create(**{"email": keyword, "topic": True})
+
+
+@task
+def createRedisIndex(data, config):
+    r = redis.StrictRedis(host=config['redis']['host'], port=config['redis']['port'], db=config['redis']['db'])
+    pipe = r.pipeline()
+    parts = urlparse(data['resource_locator'])
+    process_keywords(r, pipe, data)
+    save_display_data(pipe, parts, data)
+    pipe.execute()
+
+
+def process_keywords(r, pipe, data):
+    for k in (key.lower() for key in data['keys']):
+        keywords = k.split(' ')
+        keywords.append(k)
+        for keyword_part in keywords:
+            if not r.zadd(k, 1.0, data['resource_locator']):
+                r.zincrby(k, data['resource_locator'], 1.0)
+
+
+def save_display_data(pipe, parts, data):
+    title = data['resource_locator']
+    try:
+        title = "{0}/...{1}".format(parts.netloc, parts.path[parts.path.rfind('/'):])
+        headers = requests.head(data['resource_locator'])
+        if headers.headers['content-type'] == 'text/html':
+            fullPage = requests.get(data['resource_locator'])
+            soup = BeautifulSoup(fullPage.content)
+            title = soup.html.head.title.string
+    except Exception as e:
+        print(e)
+    pipe.hmset(data['resource_locator'], {'resource_locator': data['resource_locator'], 'title': title})
