@@ -14,7 +14,8 @@ log = get_default_logger()
 def startHarvest(config):
     log.debug('got here')
     lrUrl = config['lrUrl']
-    r = redis.StrictRedis(host=config['redis']['host'], port=config['redis']['port'], db=config['redis']['db'])
+    r = redis.StrictRedis(host=config['redis']['host'],
+        port=config['redis']['port'], db=config['redis']['db'])
     fromDate = None
     try:
         fromDate = r.get('lastHarvestTime')
@@ -50,7 +51,9 @@ def harvestData(lrUrl, config):
            data['resumption_token'] is not None and \
            data['resumption_token'] != "null":
             urlParts = urlparse.urlparse(lrUrl)
-            newQuery = urllib.urlencode({"resumption_token": data['resumption_token']})
+            newQuery = urllib.urlencode({
+                   "resumption_token": data['resumption_token']
+                   })
             lrUrl = urlparse.urlunparse((urlParts[0],
                                          urlParts[1],
                                          urlParts[2],

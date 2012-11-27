@@ -10,7 +10,15 @@ from pycassa.pool import ConnectionPool
 from pycassa.columnfamily import ColumnFamily
 from BeautifulSoup import BeautifulSoup
 from urlparse import urlparse
+import hashlib
+from lxml import etree
+from StringIO import StringIO
 log = get_default_logger()
+dc_namespaces = {
+                    "nsdl_dc": "http://ns.nsdl.org/nsdl_dc_v1.02/",
+                    "dc": "http://purl.org/dc/elements/1.1/",
+                    "dct": "http://purl.org/dc/terms/"
+                }
 
 
 @task
@@ -48,7 +56,11 @@ def insertDocumentElasticSearch(envelope, config):
         count = r.incr('esid')
         conf = config['elasticsearch']
         es = pyes.ES("{0}:{1}".format(conf['host'], conf['port']))
-        index = {"resource_locator": envelope['resource_locator'], 'resource_data': envelope['resource_data'], 'doc_ID': envelope['doc_ID']}
+        index = {
+                 "resource_locator": envelope['resource_locator'],
+                 'resource_data': envelope['resource_data'],
+                 'doc_ID': envelope['doc_ID']
+                 }
         es.index(index, conf['index'], conf['index-type'], count)
 
 
@@ -84,16 +96,20 @@ def insertLRInterface(envelope, config):
 
 @task
 def saveToCassandra(data, config):
-    r = redis.StrictRedis(host=config['redis']['host'], port=config['redis']['port'], db=config['redis']['db'])
+    r = redis.StrictRedis(host=config['redis']['host'],
+                          port=config['redis']['port'],
+                           db=config['redis']['db'])
     pool = ConnectionPool('lr', server_list=['localhost', '10.10.1.47'])
     cf = ColumnFamily(pool, 'contentobjects')
-    id = r.incr('cassandraid')
-    cf.insert(id, data)
+    cassandra_id = r.incr('cassandraid')
+    cf.insert(cassandra_id, data)
 
 
 @task
 def saveToNeo(keyword, config):
-    r = redis.StrictRedis(host=config['redis']['host'], port=config['redis']['port'], db=config['redis']['db'])
+    r = redis.StrictRedis(host=config['redis']['host'],
+                          port=config['redis']['port'],
+                          db=config['redis']['db'])
     gdb = GraphDatabase("http://localhost:7474/db/data/")
     if not r.sismember('topics', keyword):
         r.sadd('topics', keyword)
@@ -102,33 +118,72 @@ def saveToNeo(keyword, config):
 
 @task
 def createRedisIndex(data, config):
-    r = redis.StrictRedis(host=config['redis']['host'], port=config['redis']['port'], db=config['redis']['db'])
-    pipe = r.pipeline()
+    r = redis.StrictRedis(host=config['redis']['host'],
+                          port=config['redis']['port'],
+                          db=config['redis']['db'])
     parts = urlparse(data['resource_locator'])
-    process_keywords(r, pipe, data)
-    save_display_data(pipe, parts, data)
-    pipe.execute()
+    process_keywords(r, data)
+    save_display_data(parts, data, config)
 
 
-def process_keywords(r, pipe, data):
+def process_keywords(r, data):
+    m = hashlib.md5()
+    m.update(data['resource_locator'])
+    url_hash = m.hexdigest()
+
+    def save_to_index(k, value):
+        if not r.zadd(k, 1.0, value):
+            r.zincrby(k, value, 1.0)
+
     for k in (key.lower() for key in data['keys']):
         keywords = k.split(' ')
         keywords.append(k)
         for keyword_part in keywords:
-            if not r.zadd(k, 1.0, data['resource_locator']):
-                r.zincrby(k, data['resource_locator'], 1.0)
+            save_to_index(k, url_hash)
+        if 'nsdl_dc' in data['payload_schema']:
+            s = StringIO(data['resource_data'])
+            tree = etree.parse(s)
+            result = tree.xpath('/nsdl_dc:nsdl_dc/dc:subject',
+                                namespaces=dc_namespaces)
+            for subject in result:
+                save_to_index(subject.text.lower(), url_hash)
 
 
-def save_display_data(pipe, parts, data):
+def save_display_data(parts, data, config):
     title = data['resource_locator']
+    description = ""
+    m = hashlib.md5()
+    m.update(data['resource_locator'])
+    couchdb_id = m.hexdigest()
+    conf = config['couchdb']
+    db = couchdb.Database(conf['dbUrl'])
     try:
-        title = "{0}/...{1}".format(parts.netloc, parts.path[parts.path.rfind('/'):])
         headers = requests.head(data['resource_locator'])
-        if headers.headers['content-type'] == 'text/html':
+        print(headers.headers['content-type'])
+        if 'nsdl_dc' in data['payload_schema']:
+            s = StringIO(data['resource_data'])
+            tree = etree.parse(s)
+            result = tree.xpath('/nsdl_dc:nsdl_dc/dc:title',
+                                namespaces=dc_namespaces)
+            title = result[0].text
+            result = tree.xpath('/nsdl_dc:nsdl_dc/dc:description',
+                                namespaces=dc_namespaces)
+            description = result[0].text
+        elif headers.headers['content-type'].startswith('text/html'):
             fullPage = requests.get(data['resource_locator'])
             soup = BeautifulSoup(fullPage.content)
             title = soup.html.head.title.string
+        else:
+            title = "{0}/...{1}".format(parts.netloc,
+                                    parts.path[parts.path.rfind('/'):])
+
     except Exception as e:
         print(e)
-    print({'resource_locator': data['resource_locator'], 'title': title})
-    pipe.hmset(data['resource_locator'], {'resource_locator': data['resource_locator'], 'title': title})
+    if couchdb_id in db:
+        del db[couchdb_id]
+    db[couchdb_id] = {
+                      "title": title,
+                      "description": description,
+                      "url": data['resource_locator']
+                      }
+    print(db[couchdb_id])
