@@ -132,21 +132,21 @@ def process_keywords(r, data):
     url_hash = m.hexdigest()
 
     def save_to_index(k, value):
-        if not r.zadd(k, 1.0, value):
-            r.zincrby(k, value, 1.0)
-
-    for k in (key.lower() for key in data['keys']):
         keywords = k.split(' ')
         keywords.append(k)
         for keyword_part in keywords:
-            save_to_index(k, url_hash)
-        if 'nsdl_dc' in data['payload_schema']:
-            s = StringIO(data['resource_data'])
-            tree = etree.parse(s)
-            result = tree.xpath('/nsdl_dc:nsdl_dc/dc:subject',
-                                namespaces=dc_namespaces)
-            for subject in result:
-                save_to_index(subject.text.lower(), url_hash)
+            if not r.zadd(keyword_part, 1.0, value):
+                r.zincrby(keyword_part, value, 1.0)
+
+    for k in (key.lower() for key in data['keys']):
+        save_to_index(k, url_hash)
+    if 'nsdl_dc' in data['payload_schema']:
+        s = StringIO(data['resource_data'])
+        tree = etree.parse(s)
+        result = tree.xpath('/nsdl_dc:nsdl_dc/dc:subject',
+                            namespaces=dc_namespaces)
+        for subject in result:
+            save_to_index(subject.text.lower(), url_hash)
 
 
 def save_display_data(parts, data, config):
