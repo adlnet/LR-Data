@@ -13,12 +13,26 @@ from urlparse import urlparse
 import hashlib
 from lxml import etree
 from StringIO import StringIO
+import subprocess
+import time
 log = get_default_logger()
 dc_namespaces = {
                     "nsdl_dc": "http://ns.nsdl.org/nsdl_dc_v1.02/",
                     "dc": "http://purl.org/dc/elements/1.1/",
                     "dct": "http://purl.org/dc/terms/"
                 }
+
+
+def save_image(url, couchdb_id, dbUrl):
+    db = couchdb.Database(dbUrl)
+    p = subprocess.Popen(["firefox", "-saveimage", url])
+    p.wait()
+    time.sleep(15)
+    h = hashlib.md5()
+    h.update(url)
+    filename = h.hexdigest()
+    with open("/home/wegrata/images/" + filename + ".png", "rb") as f:
+        db.put_attachment(db[couchdb_id], f, "screenshot.jpeg", "image/jpeg")
 
 
 @task
@@ -159,7 +173,6 @@ def save_display_data(parts, data, config):
     db = couchdb.Database(conf['dbUrl'])
     try:
         headers = requests.head(data['resource_locator'])
-        print(headers.headers['content-type'])
         if 'nsdl_dc' in data['payload_schema']:
             s = StringIO(data['resource_data'])
             tree = etree.parse(s)
@@ -186,4 +199,4 @@ def save_display_data(parts, data, config):
                       "description": description,
                       "url": data['resource_locator']
                       }
-    print(db[couchdb_id])
+    save_image(data['resource_locator'], couchdb_id, conf['dbUrl'])
