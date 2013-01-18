@@ -14,7 +14,7 @@ Run `pip install -U -r requirements.txt`
 #Configuration
 All configuration is done in the src/celeryconfig.py file.  For information of configuring Celery please see their [document](http://celery.readthedocs.org/en/latest/index.html).  For lr-data configuration modify 
 
-`config = {
+    config = {
 
 	"lrUrl": "http://lrdev02.learningregistry.org/harvest/listrecords",
 
@@ -50,7 +50,7 @@ All configuration is done in the src/celeryconfig.py file.  For information of c
 
 	}
 
-}`
+    }
 
 set `insertTask` to be the celery task you wish to use to save the data and modify `validationTask` to be your validation task
 #Startup
