@@ -155,12 +155,15 @@ def process_keywords(r, data):
     for k in (key.lower() for key in data['keys']):
         save_to_index(k, url_hash)
     if 'nsdl_dc' in data['payload_schema']:
-        s = StringIO(data['resource_data'])
-        tree = etree.parse(s)
-        result = tree.xpath('/nsdl_dc:nsdl_dc/dc:subject',
-                            namespaces=dc_namespaces)
-        for subject in result:
-            save_to_index(subject.text.lower(), url_hash)
+        try:
+            s = StringIO(data['resource_data'])
+            tree = etree.parse(s)
+            result = tree.xpath('/nsdl_dc:nsdl_dc/dc:subject',
+                                namespaces=dc_namespaces)
+            for subject in result:
+                save_to_index(subject.text.lower(), url_hash)
+        except etree.XMLSyntaxError as xml_ex:
+            print(data['resource_data'])
 
 
 def save_display_data(parts, data, config):
@@ -174,14 +177,17 @@ def save_display_data(parts, data, config):
     try:
         headers = requests.head(data['resource_locator'])
         if 'nsdl_dc' in data['payload_schema']:
-            s = StringIO(data['resource_data'])
-            tree = etree.parse(s)
-            result = tree.xpath('/nsdl_dc:nsdl_dc/dc:title',
-                                namespaces=dc_namespaces)
-            title = result[0].text
-            result = tree.xpath('/nsdl_dc:nsdl_dc/dc:description',
-                                namespaces=dc_namespaces)
-            description = result[0].text
+            try:
+                s = StringIO(data['resource_data'])
+                tree = etree.parse(s)
+                result = tree.xpath('/nsdl_dc:nsdl_dc/dc:title',
+                                    namespaces=dc_namespaces)
+                title = result[0].text
+                result = tree.xpath('/nsdl_dc:nsdl_dc/dc:description',
+                                    namespaces=dc_namespaces)
+                description = result[0].text
+            except etree.XMLSyntaxError as xml_ex:
+                print(data['resource_data'])
         elif headers.headers['content-type'].startswith('text/html'):
             fullPage = requests.get(data['resource_locator'])
             soup = BeautifulSoup(fullPage.content)
@@ -199,4 +205,4 @@ def save_display_data(parts, data, config):
                       "description": description,
                       "url": data['resource_locator']
                       }
-    save_image(data['resource_locator'], couchdb_id, conf['dbUrl'])
+    # save_image(data['resource_locator'], couchdb_id, conf['dbUrl'])
