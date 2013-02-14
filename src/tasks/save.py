@@ -162,7 +162,7 @@ def process_keywords(r, data):
                                 namespaces=dc_namespaces)
             for subject in result:
                 save_to_index(subject.text.lower(), url_hash)
-        except etree.XMLSyntaxError as xml_ex:
+        except etree.XMLSyntaxError:
             print(data['resource_data'])
 
 
@@ -186,7 +186,7 @@ def save_display_data(parts, data, config):
                 result = tree.xpath('/nsdl_dc:nsdl_dc/dc:description',
                                     namespaces=dc_namespaces)
                 description = result[0].text
-            except etree.XMLSyntaxError as xml_ex:
+            except etree.XMLSyntaxError:
                 print(data['resource_data'])
         elif headers.headers['content-type'].startswith('text/html'):
             fullPage = requests.get(data['resource_locator'])

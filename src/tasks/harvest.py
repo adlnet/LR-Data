@@ -1,4 +1,4 @@
-import json
+limport json
 import urllib2
 import urllib
 import urlparse
@@ -28,6 +28,7 @@ def startHarvest(config):
     if fromDate is not None:
         params['from'] = fromDate
     newQuery = urllib.urlencode(params)
+    print(newQuery)
     lrUrl = urlparse.urlunparse((urlParts[0],
                                  urlParts[1],
                                  urlParts[2],
@@ -35,7 +36,6 @@ def startHarvest(config):
                                  newQuery,
                                  urlParts[5]))
     harvestData.delay(lrUrl, config)
-    print(lrUrl)
     return lrUrl
 
 
