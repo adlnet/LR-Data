@@ -198,11 +198,12 @@ def save_display_data(parts, data, config):
 
     except Exception as e:
         print(e)
-    if couchdb_id in db:
-        del db[couchdb_id]
-    db[couchdb_id] = {
-                      "title": title,
-                      "description": description,
-                      "url": data['resource_locator']
-                      }
+    try:
+        db[couchdb_id] = {
+                          "title": title,
+                          "description": description,
+                          "url": data['resource_locator']
+                          }
+    except couchdb.ResourceConflict:
+        pass
     # save_image(data['resource_locator'], couchdb_id, conf['dbUrl'])

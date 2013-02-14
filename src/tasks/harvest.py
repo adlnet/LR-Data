@@ -1,4 +1,4 @@
-limport json
+import json
 import urllib2
 import urllib
 import urlparse
