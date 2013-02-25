@@ -17,7 +17,7 @@ config = {
         "index-type": "lr"
     },
     "insertTask": "tasks.save.createRedisIndex",
-    "validationTask": "tasks.validate.emptyValidate",
+    "validationTask": "tasks.validate.checkWhiteList",
     "redis": {
         "host": "localhost",
         "port": 6379,
