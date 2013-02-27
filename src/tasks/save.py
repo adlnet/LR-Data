@@ -217,9 +217,7 @@ def save_image(envelope, config):
     m.update(envelope['resource_locator'])
     couchdb_id = m.hexdigest()
     p = subprocess.Popen(["xvfb-run", "python", "screenshot.py", envelope['resource_locator'], couchdb_id], shell=True, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    print(p.communicate())
-    p.wait()
     filename = p.communicate()
-    db = couchdb.Database(conf['dbUrl'])
+    db = couchdb.Database(config['dbUrl'])
     with open(filename, "rb") as f:
         db.put_attachment(db[couchdb_id], f, "screenshot.jpeg", "image/jpeg")
