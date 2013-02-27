@@ -16,7 +16,7 @@ def emptyValidate(envelope, config):
 @task
 def checkWhiteList(envelope, config):
     bf = BloomFilter.open("filter.bloom")
-    parts = urlparse(envelope['resource_location'])
+    parts = urlparse(envelope['resource_locator'])
     if parts.netloc in bf and parts.netloc not in black_list:
     	save = True
     	try:

@@ -43,7 +43,7 @@ CELERY_LOG_LEVEL = "ERROR"
 ## but if mostly spending CPU, try to keep it close to the
 ## number of CPUs on your machine. If not set, the number of CPUs/cores
 ## available will be used.
-CELERYD_CONCURRENCY = 10
+CELERYD_CONCURRENCY = 3
 
 CELERYBEAT_SCHEDULE = {
     "harvestLR": {
