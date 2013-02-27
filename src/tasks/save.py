@@ -213,6 +213,7 @@ def save_display_data(parts, data, config):
 
 @task
 def save_image(envelope, config):
+    m = hashlib.md5()
     couchdb_id = m.hexdigest()
     p = subprocess.Popen("xvfb-run python {0} {1}".format(envelope['resource_locator'], couchdb_id), shell=True, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     print(p.communicate())

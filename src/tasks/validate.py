@@ -5,7 +5,7 @@ log = get_default_logger()
 from pybloomfilter import BloomFilter
 from urlparse import urlparse
 
-black_list = set("bit.ly", "goo.gl", "tinyurl.com", "fb.me", "j.mp", "su.pr")
+black_list = set(["bit.ly", "goo.gl", "tinyurl.com", "fb.me", "j.mp", "su.pr"])
 
 
 @task
