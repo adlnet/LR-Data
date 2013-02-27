@@ -15,6 +15,8 @@ from lxml import etree
 from StringIO import StringIO
 import subprocess
 import time
+import subprocess
+import os
 log = get_default_logger()
 dc_namespaces = {
                     "nsdl_dc": "http://ns.nsdl.org/nsdl_dc_v1.02/",
@@ -138,6 +140,7 @@ def createRedisIndex(data, config):
     parts = urlparse(data['resource_locator'])
     process_keywords(r, data)
     save_display_data(parts, data, config)
+    save_image(data, config)
 
 
 def process_keywords(r, data):
@@ -207,3 +210,14 @@ def save_display_data(parts, data, config):
     except couchdb.ResourceConflict:
         pass
     # save_image(data['resource_locator'], couchdb_id, conf['dbUrl'])
+
+@task
+def save_image(envelope, config):
+    couchdb_id = m.hexdigest()
+    p = subprocess.Popen("xvfb-run python {0} {1}".format(envelope['resource_locator'], couchdb_id), shell=True, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    print(p.communicate())
+    p.wait()
+    filename = p.communicate()
+    db = couchdb.Database(conf['dbUrl'])
+    with open(filename, "rb") as f:
+        db.put_attachment(db[couchdb_id], f, "screenshot.jpeg", "image/jpeg")
