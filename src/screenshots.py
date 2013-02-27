@@ -2,8 +2,7 @@ import sys
 import time
 import urllib2
 import uuid
-import Image
-import PIL
+import PIL.Image
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.QtWebKit import *
@@ -42,12 +41,12 @@ class Screenshot(QWebView):
 if __name__ == "__main__":
     args = sys.argv
     s = Screenshot()
-    filename = args[2] + '.jpeg'
+    filename = args[2] + '.jpg'
     s.capture(args[1], filename)
     i = PIL.Image.open(filename)
-    i.thumbnail((400, 320), Image.ANTIALIAS)
-    i.save(args[2]+"-screenshot.jpeg")
-    i.thumbnail((400, 300), Image.ANTIALIAS)
-    i.save(args[2]+"-thumbnail.jpeg")
-    print(filename)
+    i.thumbnail((400, 320), PIL.Image.ANTIALIAS)
+    i.save(args[2]+"-screenshot.jpg")
+    i.thumbnail((400, 300), PIL.Image.ANTIALIAS)
+    i.save(args[2]+"-thumbnail.jpg")
+    print args[2]+"-screenshot.jpg", args[2]+"-thumbnail.jpg"
 

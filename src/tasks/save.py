@@ -216,9 +216,13 @@ def save_image(envelope, config):
     m = hashlib.md5()
     m.update(envelope['resource_locator'])
     couchdb_id = m.hexdigest()
-    p = subprocess.Popen(" ".join(["xvfb-run", "python", "/home/techteam/src/lr-data/src/screenshots.py", envelope['resource_locator'], couchdb_id]), shell=True, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen(" ".join(["xvfb-run", "python", "screenshots.py", envelope['resource_locator'], couchdb_id]), shell=True, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     filename = p.communicate()
     print(filename)
     db = couchdb.Database(config['couchdb']['dbUrl'])
-    with open(filename[0][:-1], "rb") as f:
+    with open(couchdb_id+"-thumbnail.jpg", "rb") as f:
+        db.put_attachment(db[couchdb_id], f, "thumbnail.jpeg", "image/jpeg")
+    with open(couchdb_id+"-screenshot.jpg", "rb") as f:
         db.put_attachment(db[couchdb_id], f, "screenshot.jpeg", "image/jpeg")
+    for file_to_delete in [couchdb_id+"-thumbnail.jpg", couchdb_id+"-screenshot.jpg", couchdb_id+".jpg"]:
+        os.remove(file_to_delete)
