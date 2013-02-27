@@ -216,8 +216,9 @@ def save_image(envelope, config):
     m = hashlib.md5()
     m.update(envelope['resource_locator'])
     couchdb_id = m.hexdigest()
-    p = subprocess.Popen(["xvfb-run", "python", "screenshot.py", envelope['resource_locator'], couchdb_id], shell=True, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen(" ".join(["xvfb-run", "python", "/home/techteam/src/lr-data/src/screenshots.py", envelope['resource_locator'], couchdb_id]), shell=True, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     filename = p.communicate()
+    print(filename)
     db = couchdb.Database(config['couchdb']['dbUrl'])
-    with open(filename, "rb") as f:
+    with open(filename[0][:-1], "rb") as f:
         db.put_attachment(db[couchdb_id], f, "screenshot.jpeg", "image/jpeg")
