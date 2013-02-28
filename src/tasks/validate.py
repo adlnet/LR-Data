@@ -17,13 +17,17 @@ def emptyValidate(envelope, config):
 def checkWhiteList(envelope, config):
     bf = BloomFilter.open("filter.bloom")
     parts = urlparse(envelope['resource_locator'])
-    if parts.netloc in bf and parts.netloc not in black_list:
+    if (parts.netloc in bf and parts.netloc not in black_list):
         save = True
         try:
             resp = requests.get(envelope['resource_locator'])
+            print(resp.status_code)
             if resp.status_code != requests.codes.ok:
                 save = False
-        except:
+        except Exception as ex:
+            log.exception(ex)
             save = False
         if save:
             send_task(config['insertTask'], [envelope, config])
+        else:
+            print("Filtered: " + envelope['resource_locator'])

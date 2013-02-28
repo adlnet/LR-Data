@@ -184,9 +184,9 @@ def save_display_data(parts, data, config):
                 print(data['resource_data'])
         elif "LRMI" in data['payload_schema']:
             metadata = data['resource_data']['items'][0]['properties']
-            title = metadata.get("name", [""])[0]
-            description = metadata.get("description", [""])[0]
-            publisher = metadata.get("publisher", [""])[0]
+            title = metadata.get("name", [""]).pop()
+            description = metadata.get("description", [""]).pop()
+            publisher = metadata.get("publisher", [""]).pop()["name"]
         elif headers.headers['content-type'].startswith('text/html'):
             fullPage = requests.get(data['resource_locator'])
             soup = BeautifulSoup(fullPage.content)
@@ -216,11 +216,13 @@ def save_display_data(parts, data, config):
         doc = {"_id": couchdb_id}
         if couchdb_id in db:
             doc = db[couchdb_id]
-        doc["title"] = title,
-        doc["description"] = description,
+        doc["title"] = title
+        doc["description"] = description
         doc["url"] = data['resource_locator']
         doc['publisher'] = publisher
-        db.save(doc)
+        print(doc)
+        db[couchdb_id] = doc
+        print(doc)
         print("saved to couch")
     except Exception as ex:
         print(ex)
