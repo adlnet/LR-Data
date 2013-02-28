@@ -43,10 +43,14 @@ if __name__ == "__main__":
     s = Screenshot()
     filename = args[2] + '.jpg'
     s.capture(args[1], filename)
-    i = PIL.Image.open(filename)
-    i.thumbnail((400, 320), PIL.Image.ANTIALIAS)
-    i.save(args[2]+"-screenshot.jpg")
-    i.thumbnail((400, 300), PIL.Image.ANTIALIAS)
-    i.save(args[2]+"-thumbnail.jpg")
-    print args[2]+"-screenshot.jpg", args[2]+"-thumbnail.jpg"
+    try:
+        i = PIL.Image.open(filename)
+        i.thumbnail((400, 320), PIL.Image.ANTIALIAS)
+        i.save(args[2]+"-screenshot.jpg")
+        i = PIL.Image.open(filename)
+        i.thumbnail((400, 300), PIL.Image.ANTIALIAS)
+        i.save(args[2]+"-thumbnail.jpg")
+        print args[2]+"-screenshot.jpg", args[2]+"-thumbnail.jpg"
+    except Exception as ex:
+        print repr(ex)
 

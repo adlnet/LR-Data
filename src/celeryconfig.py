@@ -43,12 +43,12 @@ CELERY_LOG_LEVEL = "ERROR"
 ## but if mostly spending CPU, try to keep it close to the
 ## number of CPUs on your machine. If not set, the number of CPUs/cores
 ## available will be used.
-CELERYD_CONCURRENCY = 3
+# CELERYD_CONCURRENCY = 10
 
 CELERYBEAT_SCHEDULE = {
     "harvestLR": {
         "task": "tasks.harvest.startHarvest",
-        "schedule": timedelta(hours=1),
+        "schedule": timedelta(minutes=1),
         "args": (config,)
     },
 }

@@ -18,12 +18,12 @@ def checkWhiteList(envelope, config):
     bf = BloomFilter.open("filter.bloom")
     parts = urlparse(envelope['resource_locator'])
     if parts.netloc in bf and parts.netloc not in black_list:
-    	save = True
-    	try:
-    		resp = requests.get(envelope['resource_location'])
-    		if resp.status_code != requests.codes.ok:
-    			save = False
-    	except:
-    		save = False
-    	if save:
-        	send_task(config['insertTask'], [envelope, config])
+        save = True
+        try:
+            resp = requests.get(envelope['resource_locator'])
+            if resp.status_code != requests.codes.ok:
+                save = False
+        except:
+            save = False
+        if save:
+            send_task(config['insertTask'], [envelope, config])

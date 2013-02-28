@@ -15,27 +15,14 @@ from lxml import etree
 from StringIO import StringIO
 import subprocess
 import time
-import subprocess
+from lockfile import FileLock
 import os
 log = get_default_logger()
 dc_namespaces = {
-                    "nsdl_dc": "http://ns.nsdl.org/nsdl_dc_v1.02/",
-                    "dc": "http://purl.org/dc/elements/1.1/",
-                    "dct": "http://purl.org/dc/terms/"
+                "nsdl_dc": "http://ns.nsdl.org/nsdl_dc_v1.02/",
+                "dc": "http://purl.org/dc/elements/1.1/",
+                "dct": "http://purl.org/dc/terms/"
                 }
-
-
-def save_image(url, couchdb_id, dbUrl):
-    db = couchdb.Database(dbUrl)
-    p = subprocess.Popen(["firefox", "-saveimage", url])
-    p.wait()
-    time.sleep(15)
-    h = hashlib.md5()
-    h.update(url)
-    filename = h.hexdigest()
-    with open("/home/wegrata/images/" + filename + ".png", "rb") as f:
-        db.put_attachment(db[couchdb_id], f, "screenshot.jpeg", "image/jpeg")
-
 
 @task
 def insertDocumentMongo(envelope, config):
@@ -73,9 +60,9 @@ def insertDocumentElasticSearch(envelope, config):
         conf = config['elasticsearch']
         es = pyes.ES("{0}:{1}".format(conf['host'], conf['port']))
         index = {
-                 "resource_locator": envelope['resource_locator'],
-                 'resource_data': envelope['resource_data'],
-                 'doc_ID': envelope['doc_ID']
+                    "resource_locator": envelope['resource_locator'],
+                    'resource_data': envelope['resource_data'],
+                    'doc_ID': envelope['doc_ID']
                  }
         es.index(index, conf['index'], conf['index-type'], count)
 
@@ -172,6 +159,7 @@ def process_keywords(r, data):
 def save_display_data(parts, data, config):
     title = data['resource_locator']
     description = ""
+    publisher = None
     m = hashlib.md5()
     m.update(data['resource_locator'])
     couchdb_id = m.hexdigest()
@@ -189,40 +177,82 @@ def save_display_data(parts, data, config):
                 result = tree.xpath('/nsdl_dc:nsdl_dc/dc:description',
                                     namespaces=dc_namespaces)
                 description = result[0].text
+                result = tree.xpath('/nsdl_dc:nsdl_dc/dc:publisher',
+                                    namespaces=dc_namespaces)
+                publisher = result[0].text
             except etree.XMLSyntaxError:
                 print(data['resource_data'])
+        elif "LRMI" in data['payload_schema']:
+            metadata = data['resource_data']['items'][0]['properties']
+            title = metadata.get("name", [""])[0]
+            description = metadata.get("description", [""])[0]
+            publisher = metadata.get("publisher", [""])[0]
         elif headers.headers['content-type'].startswith('text/html'):
             fullPage = requests.get(data['resource_locator'])
             soup = BeautifulSoup(fullPage.content)
             title = soup.html.head.title.string
         else:
             title = "{0}/...{1}".format(parts.netloc,
-                                    parts.path[parts.path.rfind('/'):])
-
+                                        parts.path[parts.path.rfind('/'):])
+        if publisher is None:
+            curator = data['identity'].get("curator", None)
+            owner = data['identity'].get("owner", None)
+            if curator is not None and owner is not None and curator != owner:
+                publisher = "{0}, supported by {1}".format(curator, owner)
+            elif curator is not None:
+                publisher = curator
+            else:
+                signer = data['identity'].get("signer", "")
+                submitter = data['identity'].get("submitter", "")
+                if len(signer) > len(submitter):
+                    publisher = signer
+                elif len(submitter) > len(signer):
+                    publisher = submitter
+                else:
+                    publisher = ""
     except Exception as e:
         print(e)
     try:
-        db[couchdb_id] = {
-                          "title": title,
-                          "description": description,
-                          "url": data['resource_locator']
-                          }
-    except couchdb.ResourceConflict:
-        pass
-    # save_image(data['resource_locator'], couchdb_id, conf['dbUrl'])
+        doc = {"_id": couchdb_id}
+        if couchdb_id in db:
+            doc = db[couchdb_id]
+        doc["title"] = title,
+        doc["description"] = description,
+        doc["url"] = data['resource_locator']
+        doc['publisher'] = publisher
+        print(db.save(doc))
+    except Exception as ex:
+        print(ex)
+
 
 @task
 def save_image(envelope, config):
     m = hashlib.md5()
     m.update(envelope['resource_locator'])
     couchdb_id = m.hexdigest()
-    p = subprocess.Popen(" ".join(["xvfb-run", "python", "screenshots.py", envelope['resource_locator'], couchdb_id]), shell=True, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    filename = p.communicate()
+    f = FileLock("tmp")
+    with f:
+        p = subprocess.Popen(" ".join(["xvfb-run", "python", "screenshots.py", envelope['resource_locator'], couchdb_id]), shell=True, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        filename = p.communicate()
     print(filename)
+    print(couchdb_id)
     db = couchdb.Database(config['couchdb']['dbUrl'])
-    with open(couchdb_id+"-thumbnail.jpg", "rb") as f:
-        db.put_attachment(db[couchdb_id], f, "thumbnail.jpeg", "image/jpeg")
-    with open(couchdb_id+"-screenshot.jpg", "rb") as f:
-        db.put_attachment(db[couchdb_id], f, "screenshot.jpeg", "image/jpeg")
-    for file_to_delete in [couchdb_id+"-thumbnail.jpg", couchdb_id+"-screenshot.jpg", couchdb_id+".jpg"]:
-        os.remove(file_to_delete)
+    try:
+        with open(os.path.join(os.getcwd(), couchdb_id+"-thumbnail.jpg"), "rb") as f:
+            db.put_attachment(db[couchdb_id], f, "thumbnail.jpeg", "image/jpeg")
+            print("uploaded")
+    except IOError as e:
+        log.debug(os.path.join(os.getcwd(), couchdb_id+"-thumbnail.jpg"))
+        log.exception(e)
+    try:
+        with open(os.path.join(os.getcwd(), couchdb_id+"-screenshot.jpg"), "rb") as f:
+            db.put_attachment(db[couchdb_id], f, "screenshot.jpeg", "image/jpeg")
+            print("uploaded")
+    except IOError as e:
+        log.exception(e)
+    for file_to_delete in [couchdb_id+"-thumbnail.jpg", couchdb_id+"-screenshot.jpg", couchdb_id + ".jpg"]:
+        try:
+            os.remove(os.path.join(os.getcwd(), file_to_delete))
+        except OSError as e:
+            log.error(os.path.join(os.getcwd(), file_to_delete))
+            print(e)
