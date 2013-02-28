@@ -235,7 +235,7 @@ def save_image(envelope, config):
     couchdb_id = m.hexdigest()
     print('get lock')
     with FileLock("tmp") as f:
-        p = subprocess.Popen(" ".join(["xvfb-run", "python", "screenshots.py", envelope['resource_locator'], couchdb_id]), shell=True, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = subprocess.Popen(" ".join(["xvfb-run", "python", "--auto-servernum", "--server-num=1", "screenshots.py", envelope['resource_locator'], couchdb_id]), shell=True, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         filename = p.communicate()
     print(filename)
     print(couchdb_id)
