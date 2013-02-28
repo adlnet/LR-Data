@@ -14,15 +14,15 @@ import hashlib
 from lxml import etree
 from StringIO import StringIO
 import subprocess
-import time
-from lockfile import FileLock
+from lockfile import FileLock, LockTimeout
 import os
 log = get_default_logger()
 dc_namespaces = {
-                "nsdl_dc": "http://ns.nsdl.org/nsdl_dc_v1.02/",
-                "dc": "http://purl.org/dc/elements/1.1/",
-                "dct": "http://purl.org/dc/terms/"
+                    "nsdl_dc": "http://ns.nsdl.org/nsdl_dc_v1.02/",
+                    "dc": "http://purl.org/dc/elements/1.1/",
+                    "dct": "http://purl.org/dc/terms/"
                 }
+
 
 @task
 def insertDocumentMongo(envelope, config):
@@ -231,9 +231,17 @@ def save_image(envelope, config):
     m.update(envelope['resource_locator'])
     couchdb_id = m.hexdigest()
     f = FileLock("tmp")
-    with f:
+    while not f.i_am_locking():
+        try:
+            f.acquire(timeout=60)
+        except LockTimeout:
+            f.break_lock()
+            f.acquire()
+    try:
         p = subprocess.Popen(" ".join(["xvfb-run", "python", "screenshots.py", envelope['resource_locator'], couchdb_id]), shell=True, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         filename = p.communicate()
+    finally:
+        f.release()
     print(filename)
     print(couchdb_id)
     db = couchdb.Database(config['couchdb']['dbUrl'])
