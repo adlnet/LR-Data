@@ -161,14 +161,19 @@ def process_keywords(r, data):
             print(data['resource_data'])
 
 
-def handle_common_core(tree, config):
+def handle_common_core(tree, config, url):
     r = redis.StrictRedis(host=config['redis']['host'],
                           port=config['redis']['port'],
                           db=config['redis']['db'])
     query = "/nsdl_dc:nsdldc/dct:conformsTo"
+    m = hashlib.md5()
+    m.update(url)
+    url_hash = m.hexdigest()
     result = tree.query(query, namespaces=dc_namespaces)
     for standard in result:
-        print(r.incr(result.text))
+        r.incr(result.text)
+        if not r.zadd(result.text, 1.0, url_hash):
+            r.zincrby(result.text, url_hash, 1.0)
 
 
 def save_display_data(parts, data, config):
@@ -195,6 +200,7 @@ def save_display_data(parts, data, config):
                 result = tree.xpath('/nsdl_dc:nsdl_dc/dc:publisher',
                                     namespaces=dc_namespaces)
                 publisher = result[0].text
+                handle_common_core(tree, config, data['resource_locator'])
             except etree.XMLSyntaxError:
                 print(data['resource_data'])
         elif "LRMI" in data['payload_schema']:
