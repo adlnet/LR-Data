@@ -47,7 +47,7 @@ if __name__ == "__main__":
         i.thumbnail((400, 320), PIL.Image.ANTIALIAS)
         i.save(args[2]+"-screenshot.jpg")
         i = PIL.Image.open(filename)
-        i.thumbnail((400, 300), PIL.Image.ANTIALIAS)
+        i.thumbnail((107, 85), PIL.Image.ANTIALIAS)
         i.save(args[2]+"-thumbnail.jpg")
         print args[2]+"-screenshot.jpg", args[2]+"-thumbnail.jpg"
     except Exception as ex:
