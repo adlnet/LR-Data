@@ -14,8 +14,6 @@ import hashlib
 from lxml import etree
 from StringIO import StringIO
 import subprocess
-import time
-from lockfile import FileLock
 import os
 log = get_default_logger()
 dc_namespaces = {
@@ -23,6 +21,7 @@ dc_namespaces = {
                 "dc": "http://purl.org/dc/elements/1.1/",
                 "dct": "http://purl.org/dc/terms/"
                 }
+
 
 @task
 def insertDocumentMongo(envelope, config):
@@ -160,6 +159,16 @@ def process_keywords(r, data):
                 save_to_index(subject.text.lower(), url_hash)
         except etree.XMLSyntaxError:
             print(data['resource_data'])
+
+
+def handle_common_core(tree, config):
+    r = redis.StrictRedis(host=config['redis']['host'],
+                          port=config['redis']['port'],
+                          db=config['redis']['db'])
+    query = "/nsdl_dc:nsdldc/dct:conformsTo"
+    result = tree.query(query, namespaces=dc_namespaces)
+    for standard in result:
+        print(r.incr(result.text))
 
 
 def save_display_data(parts, data, config):

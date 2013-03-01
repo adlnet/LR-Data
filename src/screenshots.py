@@ -14,7 +14,7 @@ class Screenshot(QWebView):
         self.loadFinished.connect(self._loadFinished)
         self.settings().setAttribute(QWebSettings.PluginsEnabled, True)
         self.settings().setAttribute(QWebSettings.PluginsEnabled, True)
-        self.page().settings().setAttribute( QWebSettings.JavaEnabled, True )
+        # self.page().settings().setAttribute( QWebSettings.JavaEnabled, True )
 
     def capture(self, url, output_file):
         self.load(QUrl(url))
