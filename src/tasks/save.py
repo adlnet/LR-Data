@@ -101,7 +101,7 @@ def insertLRInterface(envelope, config):
 def saveToCassandra(data, config):
     r = redis.StrictRedis(host=config['redis']['host'],
                           port=config['redis']['port'],
-                           db=config['redis']['db'])
+                          db=config['redis']['db'])
     pool = ConnectionPool('lr', server_list=['localhost', '10.10.1.47'])
     cf = ColumnFamily(pool, 'contentobjects')
     cassandra_id = r.incr('cassandraid')

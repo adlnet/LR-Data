@@ -5,6 +5,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.QtWebKit import *
 
+
 class Screenshot(QWebView):
     def __init__(self):
         self.app = QApplication(sys.argv)
@@ -12,6 +13,8 @@ class Screenshot(QWebView):
         self._loaded = False
         self.loadFinished.connect(self._loadFinished)
         self.settings().setAttribute(QWebSettings.PluginsEnabled, True)
+        self.settings().setAttribute(QWebSettings.PluginsEnabled, True)
+        self.page().settings().setAttribute( QWebSettings.JavaEnabled, True )
 
     def capture(self, url, output_file):
         self.load(QUrl(url))
