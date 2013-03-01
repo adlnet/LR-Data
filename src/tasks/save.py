@@ -126,8 +126,14 @@ def createRedisIndex(data, config):
                           db=config['redis']['db'])
     parts = urlparse(data['resource_locator'])
     process_keywords(r, data)
-    save_display_data(parts, data, config)
-    save_image(data, config)
+    m = hashlib.md5()
+    m.update(data['resource_locator'])
+    couchdb_id = m.hexdigest()
+    conf = config['couchdb']
+    db = couchdb.Database(conf['dbUrl'])
+    if couchdb_id not in db:
+        save_display_data(parts, data, config)
+        save_image(data, config)
 
 
 def process_keywords(r, data):

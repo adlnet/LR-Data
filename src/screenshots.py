@@ -1,7 +1,5 @@
 import sys
 import time
-import urllib2
-import uuid
 import PIL.Image
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
