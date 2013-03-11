@@ -1,5 +1,5 @@
 from celery.task import task
-from celery.execute import send_task
+from .save import createRedisIndex
 from celery.log import get_default_logger
 log = get_default_logger()
 from pybloomfilter import BloomFilter
@@ -8,12 +8,12 @@ import requests
 black_list = set(["bit.ly", "goo.gl", "tinyurl.com", "fb.me", "j.mp", "su.pr"])
 
 
-@task
-def emptyValidate(envelope, config):
-    send_task(config['insertTask'], [envelope, config])
+# @task(queue="validate")
+# def emptyValidate(envelope, config):
+#     send_task(config['insertTask'], [envelope, config])
 
 
-@task
+@task(queue="validate")
 def checkWhiteList(envelope, config):
     bf = BloomFilter.open("filter.bloom")
     parts = urlparse(envelope['resource_locator'])
@@ -21,13 +21,13 @@ def checkWhiteList(envelope, config):
         save = True
         try:
             resp = requests.get(envelope['resource_locator'])
-            print(resp.status_code)
             if resp.status_code != requests.codes.ok:
                 save = False
         except Exception as ex:
             log.exception(ex)
             save = False
         if save:
-            send_task(config['insertTask'], [envelope, config])
+            createRedisIndex.delay(envelope, config)
+            # send_task(config['insertTask'], [envelope, config])
         else:
             print("Filtered: " + envelope['resource_locator'])

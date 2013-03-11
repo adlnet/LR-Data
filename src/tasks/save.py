@@ -1,213 +1,153 @@
 import couchdb
-import pyes
-from pymongo import Connection
 from celery.task import task
 from celery.log import get_default_logger
 import redis
-import requests
-from neo4jrestclient.client import GraphDatabase
-from pycassa.pool import ConnectionPool
-from pycassa.columnfamily import ColumnFamily
-from BeautifulSoup import BeautifulSoup
 from urlparse import urlparse
+import nltk
+import requests
 import hashlib
 from lxml import etree
 from StringIO import StringIO
 import subprocess
 import os
+from celery import group, chain
 log = get_default_logger()
-dc_namespaces = {
-                "nsdl_dc": "http://ns.nsdl.org/nsdl_dc_v1.02/",
-                "dc": "http://purl.org/dc/elements/1.1/",
-                "dct": "http://purl.org/dc/terms/"
-                }
+dc_namespaces = {"nsdl_dc": "http://ns.nsdl.org/nsdl_dc_v1.02/",
+                 "dc": "http://purl.org/dc/elements/1.1/",
+                 "dct": "http://purl.org/dc/terms/"}
+
+stop_words = requests.get("http://jmlr.csail.mit.edu/papers/volume5/lewis04a/a11-smart-stop-list/english.stop").text.split("\n")
 
 
-@task
-def insertDocumentMongo(envelope, config):
-    try:
-        conf = config['mongodb']
-        con = Connection(conf['host'], conf['port'])
-        db = con[conf['database']]
-        collection = db[conf['collection']]
-        del envelope['_rev']
-        del envelope['_id']
-        collection.insert(envelope)
-    except (Exception) as exc:
-        log.error(exc)
-        log.error("Error writing to mongo")
-
-
-@task
-def insertDocumentCouchdb(envelope, config):
-    try:
-        conf = config['couchdb']
-        db = couchdb.Database(conf['dbUrl'])
-        del envelope['_rev']
-        del envelope['_id']
-        db.save(envelope)
-    except (Exception), exc:
-        log.error(exc)
-        log.error("Error writing to mongo")
-
-
-@task
-def insertDocumentElasticSearch(envelope, config):
-        r = config['redis']
-        r = redis.StrictRedis(host=r['host'], port=r['port'], db=r['db'])
-        count = r.incr('esid')
-        conf = config['elasticsearch']
-        es = pyes.ES("{0}:{1}".format(conf['host'], conf['port']))
-        index = {
-                    "resource_locator": envelope['resource_locator'],
-                    'resource_data': envelope['resource_data'],
-                    'doc_ID': envelope['doc_ID']
-                 }
-        es.index(index, conf['index'], conf['index-type'], count)
-
-
-@task
-def insertDocumentSolr(envelope, config):
-        pass
-
-
-@task
-def insertLRInterface(envelope, config):
-    if 'keys' in envelope:
-        for k in envelope['keys']:
-            saveToNeo.delay(k, config)
-            title = envelope['resource_locator']
-            try:
-                headers = requests.head(title)
-                if headers.headers['content-type'] == 'text/html':
-                    fullPage = requests.get(title)
-                    soup = BeautifulSoup(fullPage.content)
-                    title = soup.html.head.title.string
-            except Exception:
-                pass  # expected for invalid URLs
-            cassandra_data = dict(resource_url=envelope['resource_locator'],
-                                  doc_id=envelope['doc_ID'],
-                                  submitter=envelope['identity']['submitter'],
-                                  keyword=k)
-            cassandra_data['title'] = title
-            saveToCassandra.delay(cassandra_data, config)
-
-    else:
-        print(envelope)
-
-
-@task
-def saveToCassandra(data, config):
-    r = redis.StrictRedis(host=config['redis']['host'],
-                          port=config['redis']['port'],
-                          db=config['redis']['db'])
-    pool = ConnectionPool('lr', server_list=['localhost', '10.10.1.47'])
-    cf = ColumnFamily(pool, 'contentobjects')
-    cassandra_id = r.incr('cassandraid')
-    cf.insert(cassandra_id, data)
-
-
-@task
-def saveToNeo(keyword, config):
-    r = redis.StrictRedis(host=config['redis']['host'],
-                          port=config['redis']['port'],
-                          db=config['redis']['db'])
-    gdb = GraphDatabase("http://localhost:7474/db/data/")
-    if not r.sismember('topics', keyword):
-        r.sadd('topics', keyword)
-        gdb.nodes.create(**{"email": keyword, "topic": True})
-
-
-@task
+@task(queue="save")
 def createRedisIndex(data, config):
+    key_tasks = []
+    envelope_chain = (parse_envelope_keywords.s(data, config) | process_keywords.s())
+    key_tasks.append(envelope_chain)
+    schemas = [x.lower() for x in data['payload_schema']]
+    if "nsdl_dc" in schemas:
+        common_core_chain = (handle_common_core.s() | process_keywords.s())
+        parse_result_group = group(nsdl_keyword.s(), common_core_chain)
+        parse_chain = (parse_nsdl_dc.s(data, config) | parse_result_group)
+        save_nsdl_keys = (parse_chain | process_keywords.s())
+        key_tasks.append(save_nsdl_keys)
+
+    html_chain = (parse_html.s(data, config) | process_keywords.s())
+    key_tasks.append(html_chain)
+    group(key_tasks)()
+
+
+def save_to_index(k, value, r):
+    keywords = k.split(' ')
+    keywords.append(k)
+    for keyword_part in keywords:
+        if keyword_part in stop_words:
+            continue
+        log.debug(keyword_part)
+        print(keyword_part)
+        if not r.zadd(keyword_part, 1.0, value):
+            r.zincrby(keyword_part, value, 1.0)
+
+
+@task(queue="parse")
+def parse_envelope_keywords(data, config):
+    return data['keys'], data['resource_locator'], config
+
+
+@task(queue="parse")
+def parse_nsdl_dc(data, config):
+    try:
+        s = StringIO(data['resource_data'])
+        tree = etree.parse(s)
+        return data['resource_locator'], tree, config
+    except etree.XMLSyntaxError:
+        print(data['resource_data'])
+
+
+@task(queue="index")
+def process_keywords(args):
+    keywords, resource_locator, config = args
     r = redis.StrictRedis(host=config['redis']['host'],
                           port=config['redis']['port'],
                           db=config['redis']['db'])
-    parts = urlparse(data['resource_locator'])
-    process_keywords(r, data)
     m = hashlib.md5()
-    m.update(data['resource_locator'])
-    couchdb_id = m.hexdigest()
-    conf = config['couchdb']
-    db = couchdb.Database(conf['dbUrl'])
-    if couchdb_id not in db:
-        save_display_data(parts, data, config)
-        save_image(data, config)
-
-
-def process_keywords(r, data):
-    m = hashlib.md5()
-    m.update(data['resource_locator'])
+    m.update(resource_locator)
     url_hash = m.hexdigest()
-
-    def save_to_index(k, value):
-        keywords = k.split(' ')
-        keywords.append(k)
-        for keyword_part in keywords:
-            if not r.zadd(keyword_part, 1.0, value):
-                r.zincrby(keyword_part, value, 1.0)
-
-    for k in (key.lower() for key in data['keys']):
-        save_to_index(k, url_hash)
-    if 'nsdl_dc' in data['payload_schema']:
-        try:
-            s = StringIO(data['resource_data'])
-            tree = etree.parse(s)
-            result = tree.xpath('/nsdl_dc:nsdl_dc/dc:subject',
-                                namespaces=dc_namespaces)
-            for subject in result:
-                save_to_index(subject.text.lower(), url_hash)
-        except etree.XMLSyntaxError:
-            print(data['resource_data'])
+    for k in (key.lower() for key in keywords):
+        save_to_index(k, url_hash, r)
 
 
-def handle_common_core(tree, config, url):
+@task(queue="index")
+def nsdl_keyword(args):
+    resource_locator, tree, config = args
+    try:
+        result = tree.xpath('/nsdl_dc:nsdl_dc/dc:subject',
+                            namespaces=dc_namespaces)
+        return [subject.text for subject in result], resource_locator, config
+    except etree.XMLSyntaxError:
+        print(resource_locator)
+
+
+@task(queue="parse")
+def handle_common_core(args):
+    url, tree, config = args
     r = redis.StrictRedis(host=config['redis']['host'],
                           port=config['redis']['port'],
                           db=config['redis']['db'])
     query = "/nsdl_dc:nsdldc/dct:conformsTo"
-    m = hashlib.md5()
-    m.update(url)
-    url_hash = m.hexdigest()
     result = tree.query(query, namespaces=dc_namespaces)
+    keywords = []
     for standard in result:
-        r.incr(result.text)
-        if not r.zadd(result.text, 1.0, url_hash):
-            r.zincrby(result.text, url_hash, 1.0)
+        r.incr(standard.text)
+        keywords.append(standard.text)
+    return keywords, url, config
 
 
+@task(queue="display")
+def nsdl_display_data(resource_locator, tree, config):
+    result = tree.xpath('/nsdl_dc:nsdl_dc/dc:title',
+                        namespaces=dc_namespaces)
+    title = result[0].text
+    result = tree.xpath('/nsdl_dc:nsdl_dc/dc:description',
+                        namespaces=dc_namespaces)
+    description = result[0].text
+    result = tree.xpath('/nsdl_dc:nsdl_dc/dc:publisher',
+                        namespaces=dc_namespaces)
+    publisher = result[0].text
+    save_display_data(title, description, publisher, resource_locator, config)
+
+
+@task(queue="display")
+def lrmi_display_data(data, config):
+    metadata = data['resource_data']['items'][0]['properties']
+    title = metadata.get("name", [""]).pop()
+    description = metadata.get("description", [""]).pop()
+    publisher = metadata.get("publisher", [""]).pop()["name"]
+    save_display_data(title, description, publisher, data['resource_locator'], config)
+
+
+@task(queue="parse")
+def parse_html(data, config):
+    url = data['resource_locator']
+    resp = requests.get(url)
+    raw = nltk.clean_html(resp.text)
+    tokens = [t.lower for t in nltk.word_tokenize(raw)]
+    return tokens, url, config
+
+
+
+'''
 def save_display_data(parts, data, config):
     title = data['resource_locator']
     description = ""
     publisher = None
-    m = hashlib.md5()
-    m.update(data['resource_locator'])
-    couchdb_id = m.hexdigest()
-    conf = config['couchdb']
-    db = couchdb.Database(conf['dbUrl'])
+
     try:
         headers = requests.head(data['resource_locator'])
         if 'nsdl_dc' in data['payload_schema']:
-            try:
-                s = StringIO(data['resource_data'])
-                tree = etree.parse(s)
-                result = tree.xpath('/nsdl_dc:nsdl_dc/dc:title',
-                                    namespaces=dc_namespaces)
-                title = result[0].text
-                result = tree.xpath('/nsdl_dc:nsdl_dc/dc:description',
-                                    namespaces=dc_namespaces)
-                description = result[0].text
-                result = tree.xpath('/nsdl_dc:nsdl_dc/dc:publisher',
-                                    namespaces=dc_namespaces)
-                publisher = result[0].text
-                handle_common_core(tree, config, data['resource_locator'])
-            except etree.XMLSyntaxError:
-                print(data['resource_data'])
+
         elif "LRMI" in data['payload_schema']:
-            metadata = data['resource_data']['items'][0]['properties']
-            title = metadata.get("name", [""]).pop()
-            description = metadata.get("description", [""]).pop()
-            publisher = metadata.get("publisher", [""]).pop()["name"]
+
         elif headers.headers['content-type'].startswith('text/html'):
             fullPage = requests.get(data['resource_locator'])
             soup = BeautifulSoup(fullPage.content)
@@ -233,13 +173,22 @@ def save_display_data(parts, data, config):
                     publisher = ""
     except Exception as e:
         print(e)
+'''
+
+
+def save_display_data(title, description, publisher, resource_locator, config):
+    m = hashlib.md5()
+    m.update(resource_locator)
+    couchdb_id = m.hexdigest()
+    conf = config['couchdb']
+    db = couchdb.Database(conf['dbUrl'])
     try:
         doc = {"_id": couchdb_id}
         if couchdb_id in db:
             doc = db[couchdb_id]
         doc["title"] = title
         doc["description"] = description
-        doc["url"] = data['resource_locator']
+        doc["url"] = resource_locator
         doc['publisher'] = publisher
         print(doc)
         db[couchdb_id] = doc
@@ -249,7 +198,7 @@ def save_display_data(parts, data, config):
         print(ex)
 
 
-@task
+@task(queue="image")
 def save_image(envelope, config):
     m = hashlib.md5()
     m.update(envelope['resource_locator'])

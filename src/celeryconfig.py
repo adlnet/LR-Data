@@ -25,18 +25,18 @@ config = {
     }
 }
 # List of modules to import when celery starts.
-CELERY_IMPORTS = ("tasks.harvest", "tasks.save", "tasks.validate")
+CELERY_IMPORTS = ("tasks.harvest", "tasks.save", "tasks.validate", "tasks.tests")
 
 ## Result store settings.
-#CELERY_RESULT_BACKEND = "database"
-#CELERY_RESULT_DBURI = "sqlite:///mydatabase.db"
+CELERY_RESULT_BACKEND = "amqp"
+CELERY_RESULT_DBURI = "amqp://guest:guest@localhost:5672//"
 
 ## Broker settings.
 BROKER_URL = "amqp://guest:guest@localhost:5672//"
 
-CELERY_LOG_DEBUG = "FALSE"
-CELERY_LOG_FILE = "/celeryd.log"
-CELERY_LOG_LEVEL = "ERROR"
+CELERY_LOG_DEBUG = "TRUE"
+CELERY_LOG_FILE = "./celeryd.log"
+CELERY_LOG_LEVEL = "INFO"
 
 ## Worker settings
 ## If you're doing mostly I/O you can have more processes,

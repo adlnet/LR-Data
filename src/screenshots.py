@@ -40,11 +40,10 @@ class Screenshot(QWebView):
         self._loaded = True
 
 
-if __name__ == "__main__":
-    args = sys.argv
+def capture(doc_id, url):
     s = Screenshot()
-    filename = args[2] + '.jpg'
-    s.capture(args[1], filename)
+    filename = doc_id + '.jpg'
+    s.capture(url, filename)
     try:
         i = PIL.Image.open(filename)
         i.thumbnail((400, 320), PIL.Image.ANTIALIAS)
@@ -55,4 +54,11 @@ if __name__ == "__main__":
         print args[2]+"-screenshot.jpg", args[2]+"-thumbnail.jpg"
     except Exception as ex:
         print repr(ex)
+
+
+if __name__ == "__main__":
+    args = sys.argv
+    doc_id = args[2]
+    url = args[1]
+    capture(doc_id, url)
 
