@@ -34,6 +34,7 @@ def createRedisIndex(data, config):
     envelope_chain = (parse_envelope_keywords.s(data, config) | process_keywords.s())
     key_tasks.append(envelope_chain)
     schemas = [x.lower() for x in data['payload_schema']]
+    print(schemas)
     if "nsdl_dc" in schemas:
         display_found = True
         key_tasks.extend(create_nsdl_dc_task_tree(data, config))
@@ -64,7 +65,6 @@ def save_to_index(k, value, r):
             continue  # don't index single characters
         if reduce(lambda x, y: x and (ord(y) in punctuation), keyword_part, True):
             continue  # don't index if the entire string is punctuation
-        print(keyword_part)
         if not r.zadd(keyword_part, 1.0, value):
             r.zincrby(keyword_part, value, 1.0)
 
@@ -120,6 +120,7 @@ def handle_common_core(args):
     result = tree.xpath(query, namespaces=dc_namespaces)
     keywords = []
     for standard in result:
+        print(standard)
         r.incr(standard.text+"-count")
         keywords.append(standard.text)
     return keywords, url, config
@@ -230,7 +231,6 @@ def save_display_data(title, description, publisher, resource_locator, config):
         doc["url"] = resource_locator.strip()
         doc['publisher'] = publisher.strip()
         db[couchdb_id] = doc
-        print("saved to couch")
     except Exception as ex:
         print(ex)
 
