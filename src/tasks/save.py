@@ -5,6 +5,7 @@ import redis
 import nltk
 import requests
 import hashlib
+import urlparse
 from lxml import etree
 from StringIO import StringIO
 import subprocess
@@ -71,7 +72,11 @@ def save_to_index(k, value, r):
 
 @task(queue="parse")
 def parse_envelope_keywords(data, config):
-    return data['keys'], data['resource_locator'], config
+    keys = []
+    keys.extend(data['keys'])
+    url_parts = urlparse.urlparse(data['resource_locator'])
+    keys.append(url_parts.netloc)
+    return keys, data['resource_locator'], config
 
 
 @task(queue="parse")
@@ -150,11 +155,12 @@ def parse_lrmi_keywords(data, config):
     metadata = data['resource_data']['items']
     keywords = []
     for item in metadata:
-        keywords.extend(item['mediaType'])
+        keywords.extend(item.get('mediaType'))
         properties = item['properties']
-        keywords.extend(properties['about'])
-        keywords.extend(properties['name'])
-        keywords.extend(properties['description'])
+        keywords.extend(properties.get('about'))
+        keywords.extend(properties.get('name'))
+        keywords.extend(properties.get('description'))
+        keywords.extend(properties.get('learningResourceType'))
     return keywords, data['resource_locator'], config
 
 
@@ -184,7 +190,7 @@ def format_publisher(publisher, data):
     if publisher is None:
         curator = data['identity'].get("curator", None)
         owner = data['identity'].get("owner", None)
-        if curator is not None and owner is not None and curator is not owner:
+        if curator is not None and owner is not None and curator.strip() != owner.strip():
             publisher = "{0}, supported by {1}".format(curator, owner)
         elif curator is not None:
             publisher = curator
