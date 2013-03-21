@@ -3,8 +3,10 @@ from .save import createRedisIndex
 from celery.log import get_default_logger
 log = get_default_logger()
 from pybloomfilter import BloomFilter
-from urlparse import urlparse
+from urlparse import urlparse, urlunparse
+from urllib import urlencode
 import requests
+import re
 black_list = set(["bit.ly", "goo.gl", "tinyurl.com", "fb.me", "j.mp", "su.pr"])
 
 
@@ -12,11 +14,20 @@ black_list = set(["bit.ly", "goo.gl", "tinyurl.com", "fb.me", "j.mp", "su.pr"])
 # def emptyValidate(envelope, config):
 #     send_task(config['insertTask'], [envelope, config])
 
+def translate_url(url_parts):
+    r = re.compile("\w+:\d+")
+    path = url_parts.path
+    content_object_id = r.findall(path)[0]
+    new_url_parts = (url_parts.scheme, url_parts.netloc, "Public/Model.aspx", url_parts.params, urlencode({"ContentObjectID": content_object_id}), None)
+    return urlunparse(new_url_parts)
+
 
 @task(queue="validate")
 def checkWhiteList(envelope, config):
     bf = BloomFilter.open("filter.bloom")
     parts = urlparse(envelope['resource_locator'])
+    if parts.net_loc == "3dr.adlnet.gov":
+        envelope['resource_locator'] = translate_url(parts)
     if (parts.netloc in bf and parts.netloc not in black_list):
         save = True
         try:
