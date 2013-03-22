@@ -26,7 +26,7 @@ def translate_url(url_parts):
 def checkWhiteList(envelope, config):
     bf = BloomFilter.open("filter.bloom")
     parts = urlparse(envelope['resource_locator'])
-    if parts.net_loc == "3dr.adlnet.gov":
+    if parts.netloc == "3dr.adlnet.gov":
         envelope['resource_locator'] = translate_url(parts)
     if (parts.netloc in bf and parts.netloc not in black_list):
         save = True
