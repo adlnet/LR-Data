@@ -76,6 +76,8 @@ def parse_envelope_keywords(data, config):
     keys.extend(data['keys'])
     url_parts = urlparse.urlparse(data['resource_locator'])
     keys.append(url_parts.netloc)
+    keys.append(data['identity'].get("signer", ""))
+    keys.append(data['identity'].get("submitter", ""))
     return keys, data['resource_locator'], config
 
 
@@ -106,9 +108,14 @@ def nsdl_keyword(args):
     s = StringIO(raw_tree)
     tree = etree.parse(s)
     try:
+        keys = []
         result = tree.xpath('/nsdl_dc:nsdl_dc/dc:subject',
                             namespaces=dc_namespaces)
-        return [subject.text for subject in result], resource_locator, config
+        keys.extend([subject.text for subject in result])
+        result = tree.xpath('/nsdl_dc:nsdl_dc/dc:publisher',
+                            namespaces=dc_namespaces)
+        keys.extend([subject.text for subject in result])
+        return keys, resource_locator, config
     except etree.XMLSyntaxError:
         print(resource_locator)
 
@@ -161,6 +168,7 @@ def parse_lrmi_keywords(data, config):
         keywords.extend(properties.get('name'))
         keywords.extend(properties.get('description'))
         keywords.extend(properties.get('learningResourceType'))
+        keywords.append([x["name"] for x in properties.get("publisher")])
     return keywords, data['resource_locator'], config
 
 
@@ -256,7 +264,6 @@ def save_image(envelope, config):
         with open(os.path.join(os.getcwd(), couchdb_id+"-thumbnail.jpg"), "rb") as f:
             db.put_attachment(db[couchdb_id], f, "thumbnail.jpeg", "image/jpeg")
     except IOError as e:
-        log.debug(os.path.join(os.getcwd(), couchdb_id+"-thumbnail.jpg"))
         log.exception(e)
     try:
         with open(os.path.join(os.getcwd(), couchdb_id+"-screenshot.jpg"), "rb") as f:
