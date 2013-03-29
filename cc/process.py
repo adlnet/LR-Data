@@ -1,23 +1,121 @@
+from requests import get
+from couchdb import Database
+from lxml import etree
 import json
-import couchdb
+from StringIO import StringIO
+base_meta_url = "http://s3.amazonaws.com/asnstatic/data/manifest/{0}.json"
+base_url = "http://asn.jesandco.org/ASNJurisdiction/{0}/feed"
+
+namespaces = {"dc": "http://purl.org/dc/elements/1.1/"}
+
+db = Database("http://localhost:5984/standards")
+
+states = {
+        'AK': 'Alaska',
+        'AL': 'Alabama',
+        'AR': 'Arkansas',
+        'AS': 'American Samoa',
+        'AZ': 'Arizona',
+        'CA': 'California',
+        'CO': 'Colorado',
+        'CT': 'Connecticut',
+        'DC': 'District of Columbia',
+        'DE': 'Delaware',
+        'FL': 'Florida',
+        'GA': 'Georgia',
+        'GU': 'Guam',
+        'HI': 'Hawaii',
+        'IA': 'Iowa',
+        'ID': 'Idaho',
+        'IL': 'Illinois',
+        'IN': 'Indiana',
+        'KS': 'Kansas',
+        'KY': 'Kentucky',
+        'LA': 'Louisiana',
+        'MA': 'Massachusetts',
+        'MD': 'Maryland',
+        'ME': 'Maine',
+        'MI': 'Michigan',
+        'MN': 'Minnesota',
+        'MO': 'Missouri',
+        'MP': 'Northern Mariana Islands',
+        'MS': 'Mississippi',
+        'MT': 'Montana',
+        'NA': 'National',
+        'NC': 'North Carolina',
+        'ND': 'North Dakota',
+        'NE': 'Nebraska',
+        'NH': 'New Hampshire',
+        'NJ': 'New Jersey',
+        'NM': 'New Mexico',
+        'NV': 'Nevada',
+        'NY': 'New York',
+        'OH': 'Ohio',
+        'OK': 'Oklahoma',
+        'OR': 'Oregon',
+        'PA': 'Pennsylvania',
+        'PR': 'Puerto Rico',
+        'RI': 'Rhode Island',
+        'SC': 'South Carolina',
+        'SD': 'South Dakota',
+        'TN': 'Tennessee',
+        'TX': 'Texas',
+        'UT': 'Utah',
+        'VA': 'Virginia',
+        'VI': 'Virgin Islands',
+        'VT': 'Vermont',
+        'WA': 'Washington',
+        'WI': 'Wisconsin',
+        'WV': 'West Virginia',
+        'WY': 'Wyoming'
+}
 
 
-with open('math.json') as f:
-    math_data = json.load(f)
-
-with open('english.json') as f:
-    english_data = json.load(f)
+states = {value: key for (key, value) in states.items()}
 
 
-db = couchdb.Database("http://localhost:5985/standards")
+def add_doc(main_doc):
+    if main_doc['_id'] in db:
+        del db[main_doc['_id']]
+    print(db.save(main_doc))
 
-math_doc = db['math']
 
-math_doc['children'] = math_data
+def process(state_num):
+    resp = get(base_url.format(state_num))
+    parser = etree.XMLParser(ns_clean=True, recover=True)
+    tree = etree.parse(StringIO(resp.content), parser)
+    title = tree.xpath("/rss/channel/title").pop().text
+    print(title)
+    print(states.get(title.strip()))
+    main_doc = {
+        "_id": states.get(title.strip()),
+        "description": title,
+        "title": title,
+        "children": []
+    }
+    item_titles = tree.xpath("/rss/channel/item/link", namespaces=namespaces)
+    for title in item_titles:
+        identifier = title.text[title.text.rfind("/")+1:]
+        data = get(base_meta_url.format(identifier)).json()
+        main_doc['children'].extend(data)
+    add_doc(main_doc)
 
-english_doc = db['english']
 
-english_doc['children'] = english_data
+# for state_num in xrange(111, 161):
+#     process(state_num)
 
-db.save(math_doc)
-db.save(english_doc)
+title = "Common"
+main_doc = {
+    "_id": title,
+    "description": title,
+    "title": title,
+    "children": []
+}
+local_docs = ["math.json", "english.json"]
+del db['common']
+for doc in local_docs:
+    with open(doc, "r+") as f:
+        local_data = json.load(f)
+    main_doc['children'].append(local_data)
+
+add_doc(main_doc)
