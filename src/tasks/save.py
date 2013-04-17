@@ -3,6 +3,7 @@ from celery.task import task
 from celery.log import get_default_logger
 import redis
 import nltk
+from nltk.stem.snowball import PorterStemmer
 import requests
 import hashlib
 import urlparse

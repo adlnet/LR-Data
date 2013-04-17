@@ -111,11 +111,14 @@ main_doc = {
     "title": title,
     "children": []
 }
-local_docs = ["math.json", "english.json"]
-del db['Common']
+local_docs = ["math", "english"]
 for doc in local_docs:
-    with open(doc, "r+") as f:
+    with open(doc + ".json", "r+") as f:
         local_data = json.load(f)
-    main_doc['children'].extend(local_data)
+    d = {
+        "title": doc,
+        "children": local_data
+    }
+    main_doc['children'].append(d)
 
 add_doc(main_doc)

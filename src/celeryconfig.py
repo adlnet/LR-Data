@@ -8,7 +8,8 @@ config = {
         "port": 27017,
     },
     "couchdb": {
-        "dbUrl": "http://localhost:5984/lr-data"
+        "dbUrl": "http://localhost:5984/lr-data",
+        "standardsDb": "http://localhost:5984/standards",
     },
     'elasticsearch': {
         "host": "localhost",

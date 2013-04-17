@@ -8,11 +8,12 @@ from urllib import urlencode
 import requests
 import re
 black_list = set(["bit.ly", "goo.gl", "tinyurl.com", "fb.me", "j.mp", "su.pr"])
-
+good_codes = [requests.codes.ok, requests.codes.moved, requests.codes.moved_permanently]
 
 # @task(queue="validate")
 # def emptyValidate(envelope, config):
 #     send_task(config['insertTask'], [envelope, config])
+
 
 def translate_url(url_parts):
     r = re.compile("\w+:\d+")
@@ -32,7 +33,8 @@ def checkWhiteList(envelope, config):
         save = True
         try:
             resp = requests.get(envelope['resource_locator'])
-            if resp.status_code != requests.codes.ok:
+
+            if resp.status_code not in good_codes:
                 save = False
         except Exception as ex:
             log.exception(ex)
