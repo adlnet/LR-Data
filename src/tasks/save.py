@@ -133,9 +133,11 @@ def handle_common_core(args):
     result = tree.xpath(query, namespaces=dc_namespaces)
     keywords = []
     for standard in result:
-        print(standard)
-        r.incr(standard.text+"-count")
-        keywords.append(standard.text)
+        s = standard.text
+        s = s[s.rfind("/") + 1:].lower()
+        print(s)
+        r.incr(s+"-count")
+        keywords.append(s)
     return keywords, url, config
 
 
