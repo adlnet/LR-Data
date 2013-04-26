@@ -19,7 +19,7 @@ def translate_url(url_parts):
     r = re.compile("\w+:\d+")
     path = url_parts.path
     content_object_id = r.findall(path)[0]
-    new_url_parts = (url_parts.scheme, url_parts.netloc, "Public/Model.aspx", url_parts.params, urlencode({"ContentObjectID": content_object_id}), None)
+    new_url_parts = ("https", url_parts.netloc, "Public/Model.aspx", url_parts.params, urlencode({"ContentObjectID": content_object_id}), None)
     return urlunparse(new_url_parts)
 
 

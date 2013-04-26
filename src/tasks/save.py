@@ -36,7 +36,6 @@ def createRedisIndex(data, config):
     envelope_chain = (parse_envelope_keywords.s(data, config) | process_keywords.s())
     key_tasks.append(envelope_chain)
     schemas = [x.lower() for x in data['payload_schema']]
-    print(schemas)
     if "nsdl_dc" in schemas:
         display_found = True
         key_tasks.extend(create_nsdl_dc_task_tree(data, config))
@@ -56,11 +55,14 @@ def createRedisIndex(data, config):
 def save_to_index(k, value, r):
     keywords = k.split(' ')
     keywords.append(k)
+    #ascii ranges for punction marks
+    #should probably use a regex for this
     punctuation = range(32, 48)
     punctuation.extend(range(58, 65))
     punctuation.extend(range(91, 97))
     punctuation.extend(range(123, 128))
     for keyword_part in keywords:
+        print(keyword_part)
         if keyword_part in stop_words:
             continue  # don't index stop words
         if len(keyword_part) == 1:
@@ -74,7 +76,7 @@ def save_to_index(k, value, r):
 @task(queue="parse")
 def parse_envelope_keywords(data, config):
     keys = []
-    keys.extend(data['keys'])
+    keys.extend(data.get('keys', []))
     url_parts = urlparse.urlparse(data['resource_locator'])
     keys.append(url_parts.netloc)
     keys.append(data['identity'].get("signer", ""))
@@ -135,7 +137,6 @@ def handle_common_core(args):
     for standard in result:
         s = standard.text
         s = s[s.rfind("/") + 1:].lower()
-        print(s)
         r.incr(s+"-count")
         keywords.append(s)
     return keywords, url, config
@@ -180,7 +181,13 @@ def lrmi_display_data(data, config):
     metadata = data['resource_data']['items'][0]['properties']
     title = metadata.get("name", [""]).pop()
     description = metadata.get("description", [""]).pop()
-    publisher = metadata.get("publisher", [""]).pop()["name"]
+    raw_publisher = metadata.get("publisher", [""]).pop()
+    if isinstance(raw_publisher, dict):
+        publisher = raw_publisher["name"]
+    elif isinstance(raw_publisher, str):
+        publisher = raw_publisher
+    else:
+        publisher = ""
     save_display_data(title, description, publisher, data['resource_locator'], config)
 
 

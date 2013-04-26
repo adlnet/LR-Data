@@ -1,21 +1,9 @@
 from datetime import timedelta
 config = {
     "lrUrl": "https://node01.public.learningregistry.net/harvest/listrecords",
-    "mongodb": {
-        "database": "lr",
-        "collection": "envelope",
-        "host": "localhost",
-        "port": 27017,
-    },
     "couchdb": {
         "dbUrl": "http://localhost:5984/lr-data",
         "standardsDb": "http://localhost:5984/standards",
-    },
-    'elasticsearch': {
-        "host": "localhost",
-        "port": 9200,
-        "index": "lr",
-        "index-type": "lr"
     },
     "insertTask": "tasks.save.createRedisIndex",
     "validationTask": "tasks.validate.checkWhiteList",
@@ -29,27 +17,26 @@ config = {
 CELERY_IMPORTS = ("tasks.harvest", "tasks.save", "tasks.validate", )
 
 ## Result store settings.
-CELERY_RESULT_BACKEND = "amqp"
-CELERY_RESULT_DBURI = "amqp://guest:guest@localhost:5672//"
-
+CELERY_RESULT_BACKEND = "redis"
+CELERY_RESULT_BACKEND = "redis://localhost/2"
+CELERY_TASK_RESULT_EXPIRES = 15
 ## Broker settings.
-BROKER_URL = "amqp://guest:guest@localhost:5672//"
+BROKER_URL = "redis://localhost:6379/3"
 
 CELERY_LOG_DEBUG = "TRUE"
 CELERY_LOG_FILE = "./celeryd.log"
 CELERY_LOG_LEVEL = "INFO"
-
+BROKER_TRANSPORT_OPTIONS = {'visibility_timeout': 600}
 ## Worker settings
 ## If you're doing mostly I/O you can have more processes,
 ## but if mostly spending CPU, try to keep it close to the
 ## number of CPUs on your machine. If not set, the number of CPUs/cores
 ## available will be used.
-CELERYD_CONCURRENCY = 2
 
 CELERYBEAT_SCHEDULE = {
     "harvestLR": {
         "task": "tasks.harvest.startHarvest",
-        "schedule": timedelta(minutes=1),
+        "schedule": timedelta(hours=1),
         "args": (config,)
     },
 }
