@@ -146,19 +146,20 @@ def handle_common_core(args):
 def nsdl_display_data(args):
     resource_locator, raw_tree, config = args
     s = StringIO(raw_tree)
-    tree = etree.parse(s)
-    result = tree.xpath('/nsdl_dc:nsdl_dc/dc:title',
-                        namespaces=dc_namespaces)
-    title = result[0].text
-    result = tree.xpath('/nsdl_dc:nsdl_dc/dc:description',
-                        namespaces=dc_namespaces)
-    description = result[0].text
-    result = tree.xpath('/nsdl_dc:nsdl_dc/dc:publisher',
-                        namespaces=dc_namespaces)
-    publisher = result[0].text
-    print(title)
-    print(description)
-    save_display_data(title, description, publisher, resource_locator, config)
+    try:
+        tree = etree.parse(s)
+        result = tree.xpath('/nsdl_dc:nsdl_dc/dc:title',
+                            namespaces=dc_namespaces)
+        title = result[0].text
+        result = tree.xpath('/nsdl_dc:nsdl_dc/dc:description',
+                            namespaces=dc_namespaces)
+        description = result[0].text
+        result = tree.xpath('/nsdl_dc:nsdl_dc/dc:publisher',
+                            namespaces=dc_namespaces)
+        publisher = result[0].text
+        save_display_data(title, description, publisher, resource_locator, config)
+    except etree.XMLSyntaxError as ex:
+        print(ex)
 
 
 @task(queue="parse")
