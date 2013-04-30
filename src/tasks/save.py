@@ -213,8 +213,12 @@ def parse_html(data, config):
 
 def format_publisher(publisher, data):
     if publisher is None:
-        curator = data['identity'].get("curator", None)
-        owner = data['identity'].get("owner", None)
+        raw_identity = data['identity']
+        if isinstance(raw_identity, list):
+            raw_identity = raw_identity.pop()
+        curator = raw_identity.get("curator", None)
+        owner = raw_identity.get("owner", None)
+
         if curator is not None and owner is not None and curator.strip() != owner.strip():
             publisher = "{0}, supported by {1}".format(curator, owner)
         elif curator is not None:
