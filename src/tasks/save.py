@@ -180,7 +180,13 @@ def parse_lrmi_keywords(data, config):
 @task(queue="display")
 def lrmi_display_data(data, config):
     metadata = data['resource_data']['items'][0]['properties']
-    title = metadata.get("name", [""]).pop()
+    raw_title = metadata.get("name", [""]).pop()
+    if isinstance(raw_title, dict):
+        title = raw_title["name"]
+    elif isinstance(raw_title, str):
+        title = raw_title
+    else:
+        title = ""
     description = metadata.get("description", [""]).pop()
     raw_publisher = metadata.get("publisher", [""]).pop()
     if isinstance(raw_publisher, dict):
