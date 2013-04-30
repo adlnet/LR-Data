@@ -215,6 +215,7 @@ def format_publisher(publisher, data):
     if publisher is None:
         raw_identity = data['identity']
         if isinstance(raw_identity, list):
+            print(raw_identity)
             raw_identity = raw_identity.pop()
         curator = raw_identity.get("curator", None)
         owner = raw_identity.get("owner", None)

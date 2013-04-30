@@ -17,11 +17,10 @@ config = {
 CELERY_IMPORTS = ("tasks.harvest", "tasks.save", "tasks.validate", )
 
 ## Result store settings.
-CELERY_RESULT_BACKEND = "redis"
-CELERY_RESULT_BACKEND = "redis://localhost/2"
+CELERY_RESULT_BACKEND = 'amqp://'
 CELERY_TASK_RESULT_EXPIRES = 15
 ## Broker settings.
-BROKER_URL = "redis://localhost:6379/3"
+BROKER_URL = 'amqp://'
 
 CELERY_LOG_DEBUG = "TRUE"
 CELERY_LOG_FILE = "./celeryd.log"
