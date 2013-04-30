@@ -7,6 +7,7 @@ from urlparse import urlparse, urlunparse
 from urllib import urlencode
 import requests
 import re
+import redis
 black_list = set(["bit.ly", "goo.gl", "tinyurl.com", "fb.me", "j.mp", "su.pr"])
 good_codes = [requests.codes.ok, requests.codes.moved, requests.codes.moved_permanently]
 
@@ -40,6 +41,11 @@ def checkWhiteList(envelope, config):
             log.exception(ex)
             save = False
         if save:
+            r = redis.StrictRedis(host=config['redis']['host'],
+                                  port=config['redis']['port'],
+                                  db=config['redis']['db'])
+            r.sadd("doc_ids", envelope['doc_ID'])
+            print(envelope['node_timestamp'])
             createRedisIndex.delay(envelope, config)
             # send_task(config['insertTask'], [envelope, config])
         else:
