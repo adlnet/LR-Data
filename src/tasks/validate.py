@@ -28,22 +28,23 @@ def translate_url(url_parts):
 def checkWhiteList(envelope, config):
     bf = BloomFilter.open("filter.bloom")
     parts = urlparse(envelope['resource_locator'])
+    r = redis.StrictRedis(host=config['redis']['host'],
+                          port=config['redis']['port'],
+                          db=config['redis']['db'])
     if parts.netloc == "3dr.adlnet.gov":
         envelope['resource_locator'] = translate_url(parts)
     if (parts.netloc in bf and parts.netloc not in black_list):
         save = True
         try:
             resp = requests.get(envelope['resource_locator'])
-
             if resp.status_code not in good_codes:
                 save = False
         except Exception as ex:
             log.exception(ex)
             save = False
+        if r.sismember("doc_ids", envelope['doc_ID']):
+            save = False
         if save:
-            r = redis.StrictRedis(host=config['redis']['host'],
-                                  port=config['redis']['port'],
-                                  db=config['redis']['db'])
             r.sadd("doc_ids", envelope['doc_ID'])
             print(envelope['node_timestamp'])
             createRedisIndex.delay(envelope, config)
