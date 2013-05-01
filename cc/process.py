@@ -1,10 +1,9 @@
 from requests import get
 from couchdb import Database
-from lxml import etree
+from pyquery import PyQuery as pq
 import json
-from StringIO import StringIO
 base_meta_url = "http://s3.amazonaws.com/asnstatic/data/manifest/{0}.json"
-base_url = "http://asn.jesandco.org/ASNJurisdiction/{0}/feed"
+base_url = "http://asn.jesandco.org/resources/ASNJurisdiction/{0}"
 
 namespaces = {"dc": "http://purl.org/dc/elements/1.1/"}
 
@@ -69,9 +68,32 @@ states = {
         'WV': 'West Virginia',
         'WY': 'Wyoming'
 }
+keys_to_remove = [unicode(x) for x in ['leaf', 'dcterms_language', "text",
+                  'dcterms_educationLevel', 'skos_exactMatch', "asn_localSubject",
+                  'dcterms_description', 'dcterms_subject',
+                  'asn_indexingStatus', 'asn_authorityStatus',
+                  'asn_statementLabel', 'asn_statementNotation',
+                  'asn_altStatementNotation', 'cls', 'asn_comment']]
 
 
-states = {value: key for (key, value) in states.items()}
+def process_doc(doc):
+    doc['count'] = 0
+    if "asn_identifier" in doc:
+        if 'uri' in doc['asn_identifier']:
+            doc['id'] = doc['asn_identifier']['uri'].strip()
+        else:
+            doc['id'] = doc['asn_identifier'].strip()
+    if 'id' in doc:
+        url = doc['id']
+        doc['id'] = url[url.rfind("/")+1:].lower()
+    if "text" in doc:
+        doc['title'] = doc['text']
+    for key in keys_to_remove:
+        if key.strip() in doc:
+            del doc[key]
+    if "children" in doc:
+        for child in doc['children']:
+            process_doc(child)
 
 
 def add_doc(main_doc):
@@ -80,29 +102,34 @@ def add_doc(main_doc):
     print(db.save(main_doc))
 
 
-def process(state_num):
-    resp = get(base_url.format(state_num))
-    parser = etree.XMLParser(ns_clean=True, recover=True)
-    tree = etree.parse(StringIO(resp.content), parser)
-    title = tree.xpath("/rss/channel/title").pop().text
-    print(title)
-    print(states.get(title.strip()))
+def process(state):
+    d = pq(url=base_url.format(state))
+    title = state
     main_doc = {
-        "_id": states.get(title.strip()),
+        "_id": title,
         "description": title,
         "title": title,
         "children": []
     }
-    item_titles = tree.xpath("/rss/channel/item/link", namespaces=namespaces)
-    for title in item_titles:
-        identifier = title.text[title.text.rfind("/")+1:]
-        data = get(base_meta_url.format(identifier)).json()
-        main_doc['children'].extend(data)
+    names = d("td.views-field-field-dcterms-subject-value")
+    links = d("td.views-field-markup a")
+    for entry in zip(names, links):
+        name = entry[0].text.strip()
+        url = entry[1].attrib['href']
+        if url.endswith('json'):
+            child_doc = {
+                "description": name,
+                "title": name,
+                "children": get(url).json()
+            }
+            main_doc['children'].append(child_doc)
+    process_doc(main_doc)
     add_doc(main_doc)
 
 
-# for state_num in xrange(111, 161):
-#     process(state_num)
+for state_num in states.keys():
+    print(state_num)
+    process(state_num)
 
 title = "Common"
 main_doc = {
@@ -120,5 +147,5 @@ for doc in local_docs:
         "children": local_data
     }
     main_doc['children'].append(d)
-
+process_doc(main_doc)
 add_doc(main_doc)
