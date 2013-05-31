@@ -127,23 +127,30 @@ def process(state):
     add_doc(main_doc)
 
 
-for state_num in states.keys():
-    print(state_num)
-    process(state_num)
+# for state_num in states.keys():
+#     print(state_num)
+#     process(state_num)
 
 title = "Common"
 main_doc = {
     "_id": title,
-    "description": title,
-    "title": title,
+    "description": "Multistate",
+    "title": "Multistate",
     "children": []
 }
-local_docs = ["math", "english"]
+local_docs = [("Common Core Mathmatics", "math.json"), 
+              ("National Standards for Arts Education", "D10003BC_manifest.json"),
+              ("National Council of Teachers of Mathematics", "D100000A_manifest.json"),
+              ("National Center for History in the Schools", "D10003BD_manifest.json"),
+              ("National Geography Education Standards", "D100026F_manifest.json"),
+              ("National Science Education Standards", "D10001D0_manifest.json"),
+              ("NCTE/IRA Standards for the English Language Arts", "D10003BB_manifest.json"),
+              ("Common Core English Language Arts", "english.json")]
 for doc in local_docs:
-    with open(doc + ".json", "r+") as f:
+    with open(doc[1], "r+") as f:
         local_data = json.load(f)
     d = {
-        "title": doc,
+        "title": doc[0],
         "children": local_data
     }
     main_doc['children'].append(d)

@@ -42,7 +42,7 @@ def createRedisIndex(data, config):
     if "nsdl_dc" in schemas:
         display_found = True
         key_tasks.extend(create_nsdl_dc_task_tree(data, config))
-    elif "lrmi" in schemas:
+    elif "lrmi" in schemas or "nsdl_dc" in data['resource_data']:
         display_found = True
         lrmi_chain = (parse_lrmi_keywords.s(data, config) | process_keywords.s())
         key_tasks.append(lrmi_chain)
