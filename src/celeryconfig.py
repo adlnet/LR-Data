@@ -14,7 +14,7 @@ config = {
     }
 }
 # List of modules to import when celery starts.
-CELERY_IMPORTS = ("tasks.harvest", "tasks.save", "tasks.validate", )
+CELERY_IMPORTS = ("tasks.harvest", "tasks.save", "tasks.validate", "tasks.display", "tasks.index", "tasks.parse")
 
 ## Result store settings.
 CELERY_RESULT_BACKEND = 'amqp://'
