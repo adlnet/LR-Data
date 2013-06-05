@@ -14,6 +14,8 @@ from BeautifulSoup import BeautifulSoup
 import os
 from celery import group, chain, chord
 log = get_default_logger()
+stop_words = requests.get("http://jmlr.csail.mit.edu/papers/volume5/lewis04a/a11-smart-stop-list/english.stop").text.split("\n")
+
 
 def save_to_index(k, value, r):
     keywords = nltk.word_tokenize(k)
