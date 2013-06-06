@@ -1,4 +1,10 @@
 function(doc) {
+    var sanatize(str){
+        var loc = str.lastIndexOf(".");
+        if(loc === (str.length -1 )){
+            return str.substr(0, loc);
+        }
+    }
     if(doc.publisher){
     	var testString = ", supported by ";
     	var pos = doc.publisher.indexOf(testString);
