@@ -15,6 +15,7 @@ keys_to_remove = [unicode(x) for x in ['leaf', 'dcterms_language', "text",
 
 def process_doc(doc, client):
     doc['count'] = 0
+    doc['childCount'] = 0
     if "asn_identifier" in doc:
         if 'uri' in doc['asn_identifier']:
             doc['id'] = doc['asn_identifier']['uri'].strip()
@@ -31,14 +32,15 @@ def process_doc(doc, client):
     if "id" in doc:
         count = client.get(doc['id'] + "-count")
         if count is not None:
+            print(count)
             try:
                 doc['count'] = int(count)
             except ValueError as ex:
                 log.exception(ex)
     if "children" in doc:
         for child in doc['children']:
-            doc['count'] += process_doc(child, client)
-    return doc['count']
+            doc['childCount'] += process_doc(child, client)
+    return doc['count'] + doc['childCount']
 
 
 @task(queue="rollup")
@@ -82,7 +84,7 @@ if __name__ == "__main__":
         "redis": {
             "host": "localhost",
             "port": 6379,
-            "db": 0
+            "db": 1
         }
     }
     rollup(config)

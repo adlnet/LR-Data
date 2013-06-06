@@ -5,8 +5,8 @@ from pprint import pprint
 import math
 import mincemeat
 import json
-db = couchdb.Database("http://localhost:5984/lr-data")
-r = StrictRedis(db=0)
+db = couchdb.Database("http://admin:password@localhost:5984/lr-data")
+r = StrictRedis(db=1)
 
 def count_map(k, v):
     yield v
@@ -27,13 +27,12 @@ def process_keys():
             pass
 
 
-s = mincemeat.Server()
-
-s.datasource = {k: (d, v) for k, d, v in process_keys()}
-s.mapfn = count_map
-s.reducefn = count_reduce
-s.run_server(password="password")
-
+#s = mincemeat.Server()
+#s.datasource = {k: (d, v) for k, d, v in process_keys()}
+#s.mapfn = count_map
+#s.reducefn = count_reduce
+#print("Start Workers")
+#s.run_server(password="password")
 def tfidf_map(k, v):
     yield k, v
 
@@ -44,7 +43,7 @@ def tfidf_reduce(k, vs):
     import json
     import math
     db = couchdb.Database("http://localhost:5984/lr-data")
-    r = StrictRedis(db=0)
+    r = StrictRedis(db=1)
     doc_count = len(db)
     counts = None
     def freq(word, doc_id):
@@ -87,6 +86,5 @@ s = mincemeat.Server()
 s.datasource = {(k, d): v for k, d, v in process_keys()}
 s.mapfn = tfidf_map
 s.reducefn = tfidf_reduce
+print("start workers")
 results = s.run_server(password="password")
-
-pprint(results)

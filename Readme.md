@@ -14,7 +14,7 @@ Run `pip install -U -r requirements.txt`
 #Configuration
 All configuration is done in the src/celeryconfig.py file.  For information of configuring Celery please see their [document](http://celery.readthedocs.org/en/latest/index.html).  For lr-data configuration modify 
 
-`config = {
+    config = {
 
 	"lrUrl": "http://lrdev02.learningregistry.org/harvest/listrecords",
 
@@ -50,8 +50,12 @@ All configuration is done in the src/celeryconfig.py file.  For information of c
 
 	}
 
-}`
+    }
 
 set `insertTask` to be the celery task you wish to use to save the data and modify `validationTask` to be your validation task
 #Startup
+<<<<<<< HEAD
 To start run `celeryd -B` from the source directory.  To run as a deamon follow these [instructions](http://ask.github.com/celery/cookbook/daemonizing.html)
+=======
+To start run `celryd -B` from the source directory.  To run as a deamon follow these [instructions](http://ask.github.com/celery/cookbook/daemonizing.html)
+>>>>>>> 870e29053f6ccf32810f2f5efa6ab9a3783bd6a9
