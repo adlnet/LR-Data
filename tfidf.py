@@ -6,7 +6,7 @@ import math
 import mincemeat
 import json
 db = couchdb.Database("http://localhost:5984/lr-data")
-r = StrictRedis(db=0)
+r = StrictRedis(db=1)
 
 def count_map(k, v):
     yield v
@@ -19,12 +19,14 @@ def count_reduce(k, vs):
 
 
 def process_keys():
-    for k in r.keys():
-        try:
-            for (key, value) in r.zrevrange(k, 0, -1, "WITHSCORES"):
-                yield k, key, value
-        except redis.exceptions.ResponseError:
-            pass
+    for n in xrange(ord('a'), ord('x')):
+        query = chr(n) + "*"
+        for k in r.keys(query):
+            try:
+                for (key, value) in r.zrevrange(k, 0, -1, "WITHSCORES"):
+                    yield k, key, value
+            except redis.exceptions.ResponseError:
+                pass
 
 
 s = mincemeat.Server()
@@ -32,6 +34,7 @@ s = mincemeat.Server()
 s.datasource = {k: (d, v) for k, d, v in process_keys()}
 s.mapfn = count_map
 s.reducefn = count_reduce
+print("Start Workers")
 s.run_server(password="password")
 
 def tfidf_map(k, v):
@@ -82,11 +85,10 @@ def tfidf_reduce(k, vs):
     r.zadd(key, rank, doc_id)
     return rank
 
-s = mincemeat.Server()
+# s = mincemeat.Server()
 
-s.datasource = {(k, d): v for k, d, v in process_keys()}
-s.mapfn = tfidf_map
-s.reducefn = tfidf_reduce
-results = s.run_server(password="password")
-
-pprint(results)
+# s.datasource = {(k, d): v for k, d, v in process_keys()}
+# s.mapfn = tfidf_map
+# s.reducefn = tfidf_reduce
+print("Start Workers")
+# results = s.run_server(password="password")
