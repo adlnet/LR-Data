@@ -16,7 +16,7 @@ function(doc) {
     		var newPublisher = doc.publisher.replace(testString, "||");
     		var parts = newPublisher.split("||");
     		for (var i in parts){
-    			emit(parts[i], null);
+    			emit(parts[i].toLowerCase(), null);
     		}
     	}
     } 
