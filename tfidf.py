@@ -5,7 +5,7 @@ from pprint import pprint
 import math
 import mincemeat
 import json
-db = couchdb.Database("http://admin:password@localhost:5984/lr-data")
+db = couchdb.Database("http://localhost:5984/lr-data")
 r = StrictRedis(db=1)
 
 def count_map(k, v):
@@ -19,39 +19,45 @@ def count_reduce(k, vs):
 
 
 def process_keys():
-    for k in r.keys():
-        try:
-            for (key, value) in r.zrevrange(k, 0, -1, "WITHSCORES"):
-                yield k, key, value
-        except redis.exceptions.ResponseError:
-            pass
+    for n in xrange(ord('a'), ord('z')):
+      for l in xrange(ord('a'), ord('z')):
+        query = chr(n) + chr(l) + "*"
+        for k in r.keys(query):
+            try:
+                for (key, value) in r.zrevrange(k, 0, -1, "WITHSCORES"):
+                    yield k, key, value
+            except redis.exceptions.ResponseError:
+                pass
 
 
 #s = mincemeat.Server()
+
 #s.datasource = {k: (d, v) for k, d, v in process_keys()}
 #s.mapfn = count_map
 #s.reducefn = count_reduce
 #print("Start Workers")
 #s.run_server(password="password")
+
 def tfidf_map(k, v):
     yield k, v
-
-def tfidf_reduce(k, vs):
-    from redis import StrictRedis
-    import redis
-    import couchdb    
+doc_count = len(db)
+def tfidf_reduce(args):
+    if args is None:
+        return
+    key, doc_id, value = args
     import json
     import math
-    db = couchdb.Database("http://localhost:5984/lr-data")
-    r = StrictRedis(db=1)
-    doc_count = len(db)
     counts = None
+    r = StrictRedis(db=1)
     def freq(word, doc_id):
         return r.zscore(word, doc_id)
 
     def word_count(doc_id):        
-        with open("counts/" + doc_id, "r+") as f:
-            return float(f.read())
+        try:
+            with open("counts/" + doc_id, "r+") as f:
+                return float(f.read())
+        except:
+            return 1.0 
 
     def num_docs_containing(word):
         return r.zcard(word)
@@ -64,27 +70,28 @@ def tfidf_reduce(k, vs):
 
     def tf_idf(word, doc_id):
         return (tf(word, doc_id) * idf(word))    
-    key, doc_id = k
     if doc_id not in db:
         return
     doc = db[doc_id]
     multiplier = 1
     try:
-        if key in doc['title'].lower():
+        if key.lower() in doc['title'].lower():
+            multiplier = 4
+        elif key.lower() in doc['description'].lower():
             multiplier = 2
-            print("key in title, double the power")
     except:
         pass
     rank = tf_idf(key, doc_id) * multiplier
     if rank is None :
         rank = 0
+    print("{0}: {1} is {2}".format(doc_id, key, rank))
     r.zadd(key, rank, doc_id)
     return rank
 
-s = mincemeat.Server()
 
-s.datasource = {(k, d): v for k, d, v in process_keys()}
-s.mapfn = tfidf_map
-s.reducefn = tfidf_reduce
-print("start workers")
-results = s.run_server(password="password")
+from multiprocessing import Pool
+
+p = Pool(10)
+
+p.map(tfidf_reduce, process_keys())
+p.join()
