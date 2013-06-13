@@ -11,7 +11,7 @@ function(doc) {
     if(doc.publisher){
         var lsPublisher =doc.publisher.toLowerCase();
         if (publishers.indexOf(lsPublisher) > -1){
-            emit(lsPublisher, null);
+            emit(lsPublisher, doc.publisher);
         }
     } 
 }
