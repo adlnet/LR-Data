@@ -1,0 +1,17 @@
+function(doc) {
+    var sanatize = function(str){
+        str = str.trim()
+        var loc = str.lastIndexOf(".");
+        if(loc === (str.length -1 )){
+            return str.substr(0, loc);
+        }
+        return str;
+    }
+    var publishers = ["national security agencysee resources", "consumer product safety commissionsee resources", "bureau of land management, department of the interiorsee resources", "national endowment for the humanitiessee resources", "department of the interiorsee resources", "national endowment for the artssee resources", "department of navysee resources", "u.s. courtssee resources", "federal judicial centersee resources", "securities and exchange commissionsee resources", "u.s. mint, treasurysee resources", "department of energysee resources", "national library of medicinesee resources", "department of commerce, international trade administrationsee resources", "the white housesee resources", "national constitution centersee resources", "the federal reservesee resources", "federal bureau of investigationsee resources", "national archives and records administrationsee resources", "national science foundationsee resources", "national academy of sciencessee resources", "department of housing and urban developmentsee resources", "multiple agenciessee resources", "abraham lincoln bicentennial commissionsee resources", "smithsonian institutionsee resources", "fish and wildlife service, department of interiorsee resources", "national institutes of healthsee resources", "national institute of standards and technologysee resources", "library of congresssee resources", "government printing officesee resources", "general services administrationsee resources", "national gallery of artsee resources", "department of justicesee resources", "department of agriculturesee resources", "institute of museum and library servicessee resources", "department of homeland securitysee resources", "federal trade commissionsee resources", "u.s. agency for international developmentsee resources", "u.s. geological surveysee resources", "national oceanic and atmospheric administrationsee resources", "department of health and human servicessee resources", "department of the treasurysee resources", "centers for disease control and preventionsee resources", "internal revenue servicesee resources", "office of naval researchsee resources", "department of commercesee resources", "u.s. institute of peacesee resources", "food and drug administrationsee resources", "national park servicesee resources", "u.s. global change research programsee resources", "holocaust memorial museumsee resources", "department of educationsee resources", "department of statesee resources", "department of veterans affairssee resources", "environmental protection agencysee resources", "small business administrationsee resources", "federal deposit insurance corporationsee resources", "federal emergency management agencysee resources", "house of representativessee resources", "u.s. census bureausee resources", "department of armysee resources", "national aeronautics and space administrationsee resources", "central intelligence agencysee resources", "national park service, teaching with historic placessee resources", "department of laborsee resources", "peace corpssee resources"];    
+    if(doc.publisher){
+        var lsPublisher =doc.publisher.toLowerCase();
+        if (publishers.indexOf(lsPublisher) > -1){
+            emit(lsPublisher, null);
+        }
+    } 
+}
