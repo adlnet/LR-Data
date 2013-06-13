@@ -30,13 +30,13 @@ def process_doc(doc, client):
         if key.strip() in doc:
             del doc[key]
     if "id" in doc:
-        count = client.get(doc['id'] + "-count")
-        if count is not None:
-            print(count)
-            try:
-                doc['count'] = int(count)
-            except ValueError as ex:
-                log.exception(ex)
+        items = client.zrevrange(doc['id'], 0, -1)
+        count = 0
+        local_db = Database("http://localhost:5984/lr-data")
+        for doc_id in items:
+            if doc_id in local_db:
+                count += 1
+        doc['count'] = count    
     if "children" in doc:
         for child in doc['children']:
             doc['childCount'] += process_doc(child, client)

@@ -71,6 +71,8 @@ def tfidf_reduce(args):
     def tf_idf(word, doc_id):
         return (tf(word, doc_id) * idf(word))    
     if doc_id not in db:
+        print("Deleted " + doc_id + " from " + key)
+        r.zrem(key, doc_id)
         return
     doc = db[doc_id]
     multiplier = 1
@@ -91,7 +93,7 @@ def tfidf_reduce(args):
 
 from multiprocessing import Pool
 
-p = Pool(10)
+p = Pool(5)
 
 p.map(tfidf_reduce, process_keys())
 p.join()
