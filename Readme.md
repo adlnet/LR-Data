@@ -8,6 +8,9 @@ This is a small utility to help pull the data from the Learning Registry into a 
 ###Python
 ###Celery
 
+### Platform-Specific Requirements:
+On OS X, you will also need `libevent`, which can be installed with homebrew: `brew install libevent`
+
 #Setup
 Run `pip install -U -r requirements.txt`
 
