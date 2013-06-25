@@ -6,7 +6,8 @@ import math
 import mincemeat
 import json
 db = couchdb.Database("http://localhost:5984/lr-data")
-r = StrictRedis(db=1)
+INDEX_DB = 0
+r = StrictRedis(db=INDEX_DB)
 
 def count_map(k, v):
     yield v
@@ -23,24 +24,25 @@ def process_keys():
       for l in xrange(ord('a'), ord('z')):
         query = chr(n) + chr(l) + "*"
         for k in r.keys(query):
-            try:
-                for (key, value) in r.zrevrange(k, 0, -1, "WITHSCORES"):
-                    yield k, key, value
-            except redis.exceptions.ResponseError:
-                pass
+            yield k
+
+def process_key(k):
+    r = StrictRedis(db=INDEX_DB)
+    try:
+        p = r.pipeline()
+        for (doc_id, value) in r.zrevrange(k, 0, -1, "WITHSCORES"):
+            if doc_id not in db:
+                print("Deleted " + doc_id + " from " + key)
+                p.zrem(key, doc_id)            
+                continue
+            doc = db[doc_id]
+            if k.lower() in doc['title'].lower() or k.lower() in doc['description'].lower():
+                p.zadd(k, value, doc_id)
+        print(p.exceute())
+    except redis.exceptions.ResponseError:
+        pass
 
 
-#s = mincemeat.Server()
-
-#s.datasource = {k: (d, v) for k, d, v in process_keys()}
-#s.mapfn = count_map
-#s.reducefn = count_reduce
-#print("Start Workers")
-#s.run_server(password="password")
-
-def tfidf_map(k, v):
-    yield k, v
-doc_count = len(db)
 def tfidf_reduce(args):
     if args is None:
         return
@@ -93,7 +95,7 @@ def tfidf_reduce(args):
 
 from multiprocessing import Pool
 
-p = Pool(5)
+p = Pool(9)
 
-p.map(tfidf_reduce, process_keys())
+p.map(process_key, process_keys())
 p.join()

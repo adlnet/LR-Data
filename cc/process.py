@@ -127,9 +127,9 @@ def process(state):
     add_doc(main_doc)
 
 
-# for state_num in states.keys():
-#     print(state_num)
-#     process(state_num)
+for state_num in states.keys():
+    print(state_num)
+    process(state_num)
 
 title = "Common"
 main_doc = {
