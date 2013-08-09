@@ -35,8 +35,8 @@ def startHarvest(config):
                         urlParts[3],
                         newQuery,
                         urlParts[5]))
-    harvestData.delay(lrUrl, config)
     print(lrUrl)
+    harvestData.delay(lrUrl, config)
     return lrUrl
 
 
@@ -61,6 +61,4 @@ def harvestData(lrUrl, config):
                                 urlParts[5]))
             harvestData.delay(lrUrl, config)
     except Exception as ex:
-        print(ex)
-        print(lrUrl)
         harvestData.delay(lrUrl, config)

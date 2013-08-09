@@ -11,6 +11,11 @@ config = {
         "host": "localhost",
         "port": 6379,
         "db": 0
+    },
+    "riak": {
+        "port": "10017",
+        "host": "localhost",
+        "protocol": "pbc"
     }
 }
 # List of modules to import when celery starts.

@@ -26,28 +26,28 @@ def translate_url(url_parts):
 
 @task(queue="validate")
 def checkWhiteList(envelope, config):
-    bf = BloomFilter.open("filter.bloom")
+#    bf = BloomFilter.open("filter.bloom")
     parts = urlparse(envelope['resource_locator'])
     r = redis.StrictRedis(host=config['redis']['host'],
                           port=config['redis']['port'],
                           db=config['redis']['db'])
+    if "lr-test-data-slice-jbrecht" in envelope['keys']:
+        return
     if parts.netloc == "3dr.adlnet.gov":
         envelope['resource_locator'] = translate_url(parts)
-    if (parts.netloc in bf and parts.netloc not in black_list):
-        save = True
-        try:
-            resp = requests.get(envelope['resource_locator'])
-            if resp.status_code not in good_codes:
-                save = False
-        except Exception as ex:
-            log.exception(ex)
-            save = False
-        if r.sismember("doc_ids", envelope['doc_ID']):
-            save = False
-        if save:
-            r.sadd("doc_ids", envelope['doc_ID'])
-            print(envelope['node_timestamp'])
-            createRedisIndex.delay(envelope, config)
-            # send_task(config['insertTask'], [envelope, config])
-        else:
-            print("Filtered: " + envelope['resource_locator'])
+#    if parts.netloc not in bf:
+#        return
+#    if parts.netloc in black_list:
+#        return 
+#    try:
+#        resp = requests.get(envelope['resource_locator'])
+#        if resp.status_code not in good_codes:
+#            return 
+#    except Exception as ex:
+#        log.exception(ex)
+#        return 
+    if r.sismember("doc_ids", envelope['doc_ID']):
+        return 
+    r.sadd("doc_ids", envelope['doc_ID'])
+    print(envelope['node_timestamp'])
+    createRedisIndex.delay(envelope, config)
