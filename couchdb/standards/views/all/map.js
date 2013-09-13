@@ -1,3 +1,3 @@
 function(doc) {
-    emit(doc.id, null);
+    emit(doc._id, null);
 }

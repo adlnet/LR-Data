@@ -1,3 +1,5 @@
 *.pyc
 celerybeat-schedule
 env
+*.jpg
+*~

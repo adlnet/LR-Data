@@ -99,7 +99,7 @@ def parse_html(data, config):
         tokens = [t.lower() for t in nltk.word_tokenize(raw)]
     return tokens
     
-def parse_lom(data, config):
+def handle_lom(data, config):
     try:
         dom = etree.fromstring(data['resource_data'])
         keys = []

@@ -43,15 +43,14 @@ class Screenshot(QWebView):
 def capture(doc_id, url):
     s = Screenshot()
     filename = doc_id + '.jpg'
-    s.capture(url, filename)
+    s.capture(url, 'images/' + filename)
     try:
-        i = PIL.Image.open(filename)
+        i = PIL.Image.open('images/' + filename)
         i.thumbnail((400, 320), PIL.Image.ANTIALIAS)
-        i.save(args[2]+"-screenshot.jpg")
-        i = PIL.Image.open(filename)
+        i.save('images/' + doc_id + "-screenshot.jpg")
+        i = PIL.Image.open('images/' + filename)
         i.thumbnail((107, 85), PIL.Image.ANTIALIAS)
-        i.save(args[2]+"-thumbnail.jpg")
-        print args[2]+"-screenshot.jpg", args[2]+"-thumbnail.jpg"
+        i.save('images/' + doc_id + "-thumbnail.jpg")
     except Exception as ex:
         print repr(ex)
 

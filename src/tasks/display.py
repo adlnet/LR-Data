@@ -12,6 +12,7 @@ from StringIO import StringIO
 import subprocess
 from BeautifulSoup import BeautifulSoup
 import os
+import riak
 from celery import group, chain, chord
 log = get_default_logger()
 namespaces = {
@@ -94,13 +95,18 @@ def format_publisher(publisher, data):
             else:
                 publisher = ""
     return publisher
+
+def get_bucket(doc_id):
+    bucket_count = 800
+    return str(sum([ord(i) for i in doc_id]) % bucket_count)
     
 def save_display_data(title, description, publisher, resource_locator, config):
     m = hashlib.md5()
     m.update(resource_locator)
     couchdb_id = m.hexdigest()
-    conf = config['couchdb']
-    db = couchdb.Database(conf['dbUrl'])
+    client = riak.RiakClient(host=config['riak']['host'],
+                             port=config['riak']['port'],
+                             protocol=config['riak']['protocol'])    
     doc = {"_id": couchdb_id}
     try:
         doc["title"] = title.strip()
@@ -112,9 +118,8 @@ def save_display_data(title, description, publisher, resource_locator, config):
                 doc[k] = v.decode('utf-8')
             except:
                 pass
-        if couchdb_id in db:
-            doc = db[couchdb_id]
-        db.save(doc)
+        bucket = client.bucket(get_bucket(couchdb_id))
+        print(bucket.new(couchdb_id, doc).store())
     except Exception as ex:
         log.exception(ex)
         log.error(description)

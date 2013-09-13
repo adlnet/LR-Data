@@ -8,7 +8,7 @@ from urllib import urlencode
 import requests
 import re
 import redis
-black_list = set(["bit.ly", "goo.gl", "tinyurl.com", "fb.me", "j.mp", "su.pr"])
+black_list = set(["bit.ly", "goo.gl", "tinyurl.com", "fb.me", "j.mp", "su.pr", 'freesound.org'])
 good_codes = [requests.codes.ok, requests.codes.moved, requests.codes.moved_permanently]
 
 # @task(queue="validate")
@@ -26,7 +26,7 @@ def translate_url(url_parts):
 
 @task(queue="validate")
 def checkWhiteList(envelope, config):
-#    bf = BloomFilter.open("filter.bloom")
+    bf = BloomFilter.open("filter.bloom")
     parts = urlparse(envelope['resource_locator'])
     r = redis.StrictRedis(host=config['redis']['host'],
                           port=config['redis']['port'],
@@ -35,19 +35,16 @@ def checkWhiteList(envelope, config):
         return
     if parts.netloc == "3dr.adlnet.gov":
         envelope['resource_locator'] = translate_url(parts)
-#    if parts.netloc not in bf:
-#        return
-#    if parts.netloc in black_list:
-#        return 
-#    try:
-#        resp = requests.get(envelope['resource_locator'])
-#        if resp.status_code not in good_codes:
-#            return 
-#    except Exception as ex:
-#        log.exception(ex)
-#        return 
-    if r.sismember("doc_ids", envelope['doc_ID']):
+    if parts.netloc not in bf:
+        return
+    if parts.netloc in black_list:
         return 
-    r.sadd("doc_ids", envelope['doc_ID'])
+    try:
+        resp = requests.get(envelope['resource_locator'])
+        if resp.status_code not in good_codes:
+            return 
+    except Exception as ex:
+        print(ex)
+        return 
     print(envelope['node_timestamp'])
     createRedisIndex.delay(envelope, config)

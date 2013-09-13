@@ -45,14 +45,24 @@ def process_keys(keywords):
 
 @task(queue="index")
 def process_keywords(keywords, resource_locator, doc_id, config):
-    client = riak.RiakClient(host=config['riak']['host'],
-                             port=config['riak']['port'],
-                             protocol=config['riak']['protocol'])    
+    r = redis.StrictRedis(host=config['redis']['host'],
+                          port=config['redis']['port'],
+                          db=config['redis']['db'])
     m = hashlib.md5()
     m.update(resource_locator)
     url_hash = m.hexdigest()
+    for k in process_keys(keywords):
+        r.sadd(k, url_hash)
 
-    keywords = list(process_keys(keywords))
-    bucket = client.bucket(url_hash)
-    key = bucket.new(doc_id, keywords)
-    key.store()
+#def process_keywords(keywords, resource_locator, doc_id, config):
+#    client = riak.RiakClient(host=config['riak']['host'],
+#                             port=config['riak']['port'],
+#                             protocol=config['riak']['protocol'])    
+#    m = hashlib.md5()
+#    m.update(resource_locator)
+#    url_hash = m.hexdigest()
+
+#    keywords = list(process_keys(keywords))
+#    bucket = client.bucket(url_hash)
+#    key = bucket.new(doc_id, keywords)
+#    key.store()
