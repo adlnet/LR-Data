@@ -26,6 +26,7 @@ def translate_url(url_parts):
 
 @task(queue="validate")
 def checkWhiteList(envelope, config):
+    print(envelope['doc_ID'])
     bf = BloomFilter.open("filter.bloom")
     parts = urlparse(envelope['resource_locator'])
     r = redis.StrictRedis(host=config['redis']['host'],
@@ -46,5 +47,4 @@ def checkWhiteList(envelope, config):
     except Exception as ex:
         print(ex)
         return 
-    print(envelope['node_timestamp'])
     createRedisIndex.delay(envelope, config)

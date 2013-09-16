@@ -15,8 +15,6 @@ from BeautifulSoup import BeautifulSoup
 import os
 from celery import group, chain, chord
 from .display import *
-from .index import *
-from .parse import *
 import pyes
 import csv
 log = get_default_logger()
@@ -26,7 +24,6 @@ DOC_TYPE = "lr_doc"
 
 def index(doc, doc_id):
     update_function = 'ctx._source.keys.addAll(keys);ctx._source.standards.addAll(standards);'
-    print(doc)
     print(conn.partial_update(INDEX_NAME, DOC_TYPE, doc_id, update_function, upsert=doc, params=doc))
 
 def get_html_display(url, publisher):

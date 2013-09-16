@@ -52,7 +52,8 @@ def harvestData(lrUrl, config):
            data['resumption_token'] is not None and \
            data['resumption_token'] != "null":
             urlParts = urlparse(lrUrl)
-            newQuery = urllib.urlencode({"resumption_token": data['resumption_token']})
+            rawQuery = {"resumption_token": data['resumption_token']}
+            newQuery = urllib.urlencode(rawQuery)
             lrUrl = urlunparse((urlParts[0],
                                 urlParts[1],
                                 urlParts[2],
@@ -60,5 +61,6 @@ def harvestData(lrUrl, config):
                                 newQuery,
                                 urlParts[5]))
             harvestData.delay(lrUrl, config)
-    except Exception as ex:
-        harvestData.delay(lrUrl, config)
+    except Exception as exc:
+        print(exc)
+        harvestData.retry(exc=exc)
