@@ -25,8 +25,8 @@ INDEX_NAME = "lr"
 DOC_TYPE = "lr_doc"
 
 def index(doc, doc_id):
-    update_function = 'ctx._source.keys.addAll(keys);'
-    'ctx._source.standards.addAll(standards);'
+    update_function = 'ctx._source.keys.addAll(keys);ctx._source.standards.addAll(standards);'
+    print(doc)
     print(conn.partial_update(INDEX_NAME, DOC_TYPE, doc_id, update_function, upsert=doc, params=doc))
 
 def get_html_display(url, publisher):
@@ -109,7 +109,6 @@ def process_nsdl_dc(envelope, mapping):
         "keys": keys,
         "standards": final_standards
         }
-        pprint(doc)
         index(doc, doc_id)
     except Exception as ex:
         print(ex)

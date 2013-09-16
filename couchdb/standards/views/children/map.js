@@ -1,6 +1,7 @@
 function(doc) {
 	function handleChildren(node, parents){
 		var parentDescriptor = node.id;
+                emit(node.id, node.id)
                 if (parentDescriptor){
 		    for (var i in parents){
 			emit(parents[i], parentDescriptor)

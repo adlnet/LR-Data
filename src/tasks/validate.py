@@ -8,7 +8,7 @@ from urllib import urlencode
 import requests
 import re
 import redis
-black_list = set(["bit.ly", "goo.gl", "tinyurl.com", "fb.me", "j.mp", "su.pr", 'freesound.org'])
+black_list = set(["bit.ly", "goo.gl", "tinyurl.com", "fb.me", "j.mp", "su.pr", 'www.freesound.org'])
 good_codes = [requests.codes.ok, requests.codes.moved, requests.codes.moved_permanently]
 
 # @task(queue="validate")
