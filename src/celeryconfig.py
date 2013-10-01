@@ -19,19 +19,17 @@ config = {
     }
 }
 # List of modules to import when celery starts.
-CELERY_IMPORTS = ("tasks.harvest", "tasks.save", "tasks.validate", "tasks.display", "tasks.index", "tasks.parse")
+CELERY_IMPORTS = ("tasks.harvest", "tasks.save", "tasks.validate", )
 
 ## Result store settings.
-CELERY_RESULT_BACKEND = 'amqp://'
-CELERY_TASK_RESULT_EXPIRES = 15
 ## Broker settings.
-BROKER_URL = 'redis://localhost:6379/2'
-
+BROKER_URL = 'amqp://'
 CELERY_LOG_DEBUG = "TRUE"
 CELERY_LOG_FILE = "./celeryd.log"
 CELERY_LOG_LEVEL = "DEBUG"
-BROKER_TRANSPORT_OPTIONS = {'visibility_timeout': 3600}
-CELERY_RESULT_BACKEND = "redis://localhost/1"
+BROKER_TRANSPORT_OPTIONS = {'visibility_timeout': 30}
+#BROKER_POOL_LIMIT = None
+CELERY_RESULT_BACKEND = "amqp://"
 CELERY_TASK_RESULT_EXPIRES = 1
 ## Worker settings
 ## If you're doing mostly I/O you can have more processes,

@@ -1,2 +1,3 @@
 #!/bin/sh
-celeryd-multi stop 4
+celeryd-multi stop 3
+

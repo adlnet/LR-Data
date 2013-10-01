@@ -1,4 +1,6 @@
 import couchdb
+from pprint import pprint
+import traceback
 from celery.task import task
 from celery.log import get_default_logger
 import redis
@@ -14,26 +16,68 @@ import subprocess
 from BeautifulSoup import BeautifulSoup
 import os
 from celery import group, chain, chord
-from .display import *
 import pyes
 import csv
 log = get_default_logger()
 conn = pyes.ES([("http", "localhost", "9200")])
+db = couchdb.Database("http://admin:password@localhost:5984/lr-data")
+r = redis.StrictRedis(host="localhost", port=6379, db=1)
 INDEX_NAME = "lr"
 DOC_TYPE = "lr_doc"
 
-def index(doc, doc_id):
-    update_function = 'ctx._source.keys.addAll(keys);ctx._source.standards.addAll(standards);'
+def index_es(doc, doc_id):
+    update_function = 'for(String key: keys){'+\
+                      'if(!ctx._source.keys.contains(key)){'+\
+                      'ctx._source.keys.add(key);'+\
+                      '}'+\
+                      '}'+\
+                      'for(String key: standards){'+\
+                      'if(!ctx._source.standards.contains(key)){'+\
+                      'ctx._source.standards.add(key);'+\
+                      '}'+\
+                      '}'
     print(conn.partial_update(INDEX_NAME, DOC_TYPE, doc_id, update_function, upsert=doc, params=doc))
 
+def index(doc, doc_id):    
+    def index_term(lst):
+        for ks in lst:
+            for k in nltk.word_tokenize(ks):
+                rank = 0.25
+                if k in doc.get('title', ''):
+                    rank *= 8
+                elif k in doc.get('description', ''):
+                    rank *= 4
+                print("Rank: {0} -- Total: {1}".format(rank, r.zincrby(k.lower(), doc_id, rank)))
+    doc['_id'] = doc_id
+    
+    try:
+        print(db.save(doc))
+    except:
+        traceback.print_exc()
+    for k in ['keys', 'standards', 'accessMode', 'mediaFeatures']:
+        try:
+            index_term(doc.get(k, []))
+        except:
+            pass
+    for k in ['publisher', 'title', 'description']:
+        try:
+            index_term([doc.get(k)])
+        except:
+            pass
+    
+
+
 def get_html_display(url, publisher):
-    md5 = hashlib.md5()
-    md5.update(url)   
-    doc_id = md5.hexdigest()
     try: 
         resp = urllib2.urlopen(url)
         if not resp.headers['content-type'].startswith('text/html'):
-            return
+            return {
+                "title": url,
+                "description": url,
+                "publisher": publisher,
+                "url" :url,
+                "hasScreenshot": False
+                }        
         raw = resp.read()
         raw = raw.decode('utf-8')
         soup = BeautifulSoup(raw)
@@ -53,7 +97,6 @@ def get_html_display(url, publisher):
             "hasScreenshot": False
             }
     except Exception as ex:
-        print(ex)
         return {
             "title": url,
             "description": url,
@@ -83,8 +126,6 @@ def process_nsdl_dc(envelope, mapping):
     for ids in standards:
         for s in ids:
             final_standards.append(s)
-            #client.zrem(s, envelope['doc_ID'])
-            #client.zadd(s, 1, doc_id)
     try:
         md5 = hashlib.md5()
         title = dom.xpath('/nsdl_dc:nsdl_dc/dc:title', namespaces=dc_namespaces)
@@ -106,13 +147,20 @@ def process_nsdl_dc(envelope, mapping):
         "keys": keys,
         "standards": final_standards
         }
-        index(doc, doc_id)
+        return doc
     except Exception as ex:
-        print(ex)
+        return {
+            "title": url,
+            "description": envelope['resource_locator'],
+            'publisher': envelope['identity']['submitter'],
+            "url" :url,
+            "hasScreenshot": False
+            }
 
 
 def process_lrmi(envelope, mapping):
     #LRMI is json so no DOM stuff is needed
+    url = envelope['resource_locator']
     resource_data = envelope.get('resource_data', {})
     properties = resource_data.get('properties', {})
     educational_alignment = properties.get('educationalAlignment', [{}]).pop()
@@ -138,15 +186,20 @@ def process_lrmi(envelope, mapping):
         'publisher': envelope['identity']['submitter']
     }
     try:
-        index(doc, doc_id)
+        return doc
     except Exception as ex:
-        print(ex)
+        traceback.print_exc()
+        
+        return {
+            "title": url,
+            "description": url,
+            'publisher': envelope['identity']['submitter'],
+            "url" :url,
+            "hasScreenshot": False
+            }        
 
 
 def process_lr_para(envelope, mapping):
-    md5 = hashlib.md5()
-    md5.update(envelope['resource_locator'])
-    doc_id = md5.hexdigest()
     activity = envelope.get('resource_data', {}).get('activity', {})
     action = activity.get('verb', {}).get('action')
     keys = envelope['keys']
@@ -158,22 +211,32 @@ def process_lr_para(envelope, mapping):
             for s in mapping.get(standard_id, [standard_id]):
                 standards.append(s)
     try:
-        doc = get_html_display(envelope['resource_locator'], envelope['identity']['submitter'])
+        submitter = envelope['identity']['submitter']
+        url = envelope['resource_locator']
+        doc = get_html_display(url, submitter)
         doc['keys'] = keys
         doc['standards'] = standards
-        index(doc, doc_id)
+        return doc
     except Exception as ex:
-        print(ex)
+        traceback.print_exc()
+        return {
+            "title": url,
+            "description": url,
+            'publisher': envelope['identity']['submitter'],
+            "url" :url,
+            "hasScreenshot": False
+            }
 
-def process_lom(data, config):
+def process_lom(data, mapping):
+    url = data['resource_locator']
     try:
         md5 = hashlib.md5()
         md5.update(data['resource_locator'])
         doc_id = md5.hexdigest()
         base_xpath = "//lom:lom/lom:general/lom:{0}/lom:string[@language='en-us' or @language='en-gb' or @language='en']"
-        dc_namespaces = {"nsdl_dc": "http://ns.nsdl.org/nsdl_dc_v1.02/",
-                         "dc": "http://purl.org/dc/elements/1.1/",
-                         "dct": "http://purl.org/dc/terms/"}
+        namespaces = {
+            "lom": "http://ltsc.ieee.org/xsd/LOM"
+            }
         dom = etree.fromstring(data['resource_data'])
         keys = []
         found_titles = dom.xpath(base_xpath.format('title'),
@@ -186,10 +249,10 @@ def process_lom(data, config):
                                   namespaces=namespaces)
         keys.extend([i.text for i in found_keyword])
         title = data['resource_locator']
-        if not found_titles:
+        if found_titles:
             title = found_titles.pop().text
         desc = data['resource_locator']
-        if not found_description:
+        if found_description:
             desc = found_description.pop().text
         doc = {
             "url": data['resource_locator'],
@@ -200,11 +263,106 @@ def process_lom(data, config):
             'hasScreenshot': False,
             'publisher': data['identity']['submitter']
             }
-        index(doc, doc_id)
+        return doc
     except Exception as ex:
-        print(ex)
+        traceback.print_exc()
+        return {
+            "title": url,
+            "description": url,
+            'publisher': data['identity']['submitter'],
+            "url" :url,
+            "hasScreenshot": False
+            }
+
+
+def handle_keys_json_ld(node):
+    keys = []
+    target_elements = ['inLanguage', 'isbn', 'provider', 
+                       'learningResourceType', 'keywords', 
+                       'educationalUse', 'author', "intendedUserRole"]
+    for k in target_elements:
+        if k in node:
+            if isinstance(node[k], str):
+                keys.append(node[k])
+            elif isinstance(node[k], list):
+                keys.extend(node[k])
+    return keys
+
+def handle_standards_json_ld(node, mapping):
+    standards = []
+    if 'educationalAlignment' in node:
+        alignments = (n['targetName'] for n in node['educationalAlignment'] if 'targetName' in n and n.get('educationalFramework','').lower().strip() == "common core state standards")
+        for alignment in alignments:
+            if isinstance(alignment, str):
+                standards.extend(mapping.get(alignment, alignment))
+            elif isinstance(alignment, list):
+                for aln in alignment:
+                    standards.extend(mapping.get(aln, aln))                    
+    return standards
+
+def process_json_ld_graph(graph, mapping):
+    data = {}
+    keys = []
+    standards = []
+    media_features = []
+    access_mode = []
+    for node in graph:
+
+        keys.extend(handle_keys_json_ld(node))
+        standards.extend(handle_standards_json_ld(node, mapping))
+
+        if 'accessMode' in node:
+            accessMode = node['accessMode']
+            if isinstance(accessMode, list):
+                access_mode.extend(accessMode)
+            else:
+                access_mode.append(accessMode)
+
+        if 'mediaFeature' in node:
+            media_feature = node['mediaFeature']
+            if isinstance(media_feature, list):
+                media_features.extend(media_feature)
+            else:
+                media_features.append(media_feature)
+        
+        if 'name' in node and 'title' not in data:
+            data['title'] = node['name']
+        if "description" in node and 'description' not in data:
+            data['description'] = node['description']
+        if 'publisher' in node and 'publisher' not in data:
+            pub = node['publisher']
+            if isinstance(pub, dict):                
+                data['publisher'] = pub.get('name', '')
+            else:
+                data['publisher'] = pub
+    data['keys'] = keys
+    data['standards'] = standards
+    data['accessMode'] = set(access_mode)
+    data['mediaFeatures'] = set(media_features)
+    return data
+        
+def process_json_ld(envelope, mapping):
+    data = {
+        "keys": envelope.get('keys', []),
+        "standards": [],
+        'accessMode': [],
+        "mediaFeatures": [],
+        'url': envelope.get('resource_locator'),
+        'hasScreenshot': True
+        }
+    payload_graph = envelope.get('resource_data', {}).get("@graph")
+    if not payload_graph:
+        payload_graph = [envelope.get('resource_data', {})]
+    graph_data = process_json_ld_graph(payload_graph, mapping)
+    for k in ['keys', 'standards', 'accessMode', 'mediaFeatures']:
+        data[k].extend(graph_data.get(k, []))
+    for k in ['title', 'description', 'publisher']:
+        if k not in data and k in graph_data:
+            data[k] = graph_data[k]
+    return data
 
 def process_generic(envelope):
+    url = envelope['resource_locator']
     md5 = hashlib.md5()
     md5.update(envelope['resource_locator'])
     doc_id = md5.hexdigest()
@@ -214,9 +372,16 @@ def process_generic(envelope):
         doc = get_html_display(envelope['resource_locator'], envelope['identity']['submitter'])
         doc['keys'] = keys
         doc['standards'] = standards
-        index(doc, doc_id)
+        return doc
     except Exception as ex:
-        print(ex)
+        traceback.print_exc()
+        return {
+            "title": url,
+            "description": url,
+            'publisher': envelope['identity']['submitter'],
+            "url" :url,
+            "hasScreenshot": False
+            }
 
 def load_standards(file_name):
     mapping = {}
@@ -240,30 +405,38 @@ def load_standards(file_name):
         
 @task(queue="save")
 def createRedisIndex(envelope, config):
-    log.debug("Begin Creating Index")
+    md5 = hashlib.md5()
+    md5.update(envelope.get('resource_locator'))   
+    doc_id = md5.hexdigest()
+    save_image.delay(envelope.get('resource_locator'))
     #normalize casing on all the schemas in the payload_schema array, if payload_schema isn't present use an empty array
     schemas = {schema.lower() for schema in envelope.get('payload_schema', [])}
     mapping = load_standards("mapping.csv")
     try:
+        doc = None
         if "lr paradata 1.0" in schemas:
-            process_lr_para(envelope, mapping)
+            doc = process_lr_para(envelope, mapping)
         elif 'nsdl_dc' in schemas:
-            process_nsdl_dc(envelope, mapping)
+            doc = process_nsdl_dc(envelope, mapping)
         elif 'lrmi' in schemas:
-            process_lrmi(envelope, mapping)
+            doc = process_lrmi(envelope, mapping)
+        elif "bookshare.org json-ld" in schemas:
+            doc = process_json_ld(envelope, mapping)
         elif "lom" in schemas:
-            process_lom(envelope, mapping)
+            doc = process_lom(envelope, mapping)
         else:
-            process_generic(envelope)
+           doc = process_generic(envelope)
+        if doc:
+            index(doc, doc_id)
     except Exception as ex:
-        print(ex)
-    save_image.delay(envelope, config)
+        traceback.print_exc()
+
 
 @task(queue="image")
-def save_image(envelope, config):
+def save_image(url):
     m = hashlib.md5()
-    m.update(envelope['resource_locator'])
+    m.update(url)
     couchdb_id = m.hexdigest()
-    p = subprocess.Popen(" ".join(["xvfb-run", "--auto-servernum", "--server-num=1", "python", "screenshots.py", envelope['resource_locator'], couchdb_id]), shell=True, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    filename = p.communicate()
-    print(filename)
+#    p = subprocess.Popen(" ".xvfb-run", "--auto-servernum", "--server-num=1", "python", "screenshots.py", url, couchdb_id]), shell=True, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+#    filename = p.communicate()
+ #   print(filename)
