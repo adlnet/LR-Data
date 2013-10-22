@@ -1,6 +1,7 @@
 import sys
 import time
 import PIL.Image
+import couchdb
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4.QtWebKit import *
@@ -40,17 +41,16 @@ class Screenshot(QWebView):
         self._loaded = True
 
 
-def capture(doc_id, url):
+def capture(doc_id, url, db):
     s = Screenshot()
-    filename = doc_id + '.jpg'
-    s.capture(url, 'images/' + filename)
+    filename = doc_id + '.jepg'
+    s.capture(url, filename)
     try:
-        i = PIL.Image.open('images/' + filename)
+        i = PIL.Image.open(filename)
         i.thumbnail((400, 320), PIL.Image.ANTIALIAS)
-        i.save('images/' + doc_id + "-screenshot.jpg")
-        i = PIL.Image.open('images/' + filename)
-        i.thumbnail((107, 85), PIL.Image.ANTIALIAS)
-        i.save('images/' + doc_id + "-thumbnail.jpg")
+        i.save(doc_id + "-screenshot.jepg")
+        with open(doc_id + "-screenshot.jepg", "r") as f:
+            db.put_attachment(doc_id, f, "screenshot.jpeg", "image/jpeg")
     except Exception as ex:
         print repr(ex)
 
@@ -59,5 +59,7 @@ if __name__ == "__main__":
     args = sys.argv
     doc_id = args[2]
     url = args[1]
-    capture(doc_id, url)
+    db_url = args[3]
+    db = couchdb.Database(db_url)
+    capture(doc_id, url, db)
 

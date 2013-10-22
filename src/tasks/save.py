@@ -1,6 +1,7 @@
 import couchdb
 from pprint import pprint
 import traceback
+import urlparse
 from celery.task import task
 from celery.log import get_default_logger
 import redis
@@ -20,13 +21,27 @@ import pyes
 import csv
 log = get_default_logger()
 conn = pyes.ES([("http", "localhost", "9200")])
-db = couchdb.Database("http://admin:password@localhost:5984/lr-data")
+db = couchdb.Database("http://localhost:5984/lr-data")
 r = redis.StrictRedis(host="localhost", port=6379, db=1)
 INDEX_NAME = "lr"
 DOC_TYPE = "lr_doc"
 
-def index_es(doc, doc_id):
-    update_function = 'for(String key: keys){'+\
+def process_complex_keys(keys):
+    new_keys = []
+    for k in keys:
+        new_keys.append(k)
+	try:
+            parts = nltk.word_tokenize(k)
+            new_keys.extend(parts)
+        except:
+            print(k)
+    return new_keys
+
+def index(doc, doc_id):
+    update_function = 'if(title != null){ctx._source.title = title;}'+\
+                      'if(description != null){ctx._source.description = description;}'+\
+                      'if(publisher != null){ctx._source.publisher = publisher;}'+\
+                      'for(String key: keys){'+\
                       'if(!ctx._source.keys.contains(key)){'+\
                       'ctx._source.keys.add(key);'+\
                       '}'+\
@@ -36,9 +51,10 @@ def index_es(doc, doc_id):
                       'ctx._source.standards.add(key);'+\
                       '}'+\
                       '}'
+    doc['keys'] = process_complex_keys(doc.get('keys', []))
     print(conn.partial_update(INDEX_NAME, DOC_TYPE, doc_id, update_function, upsert=doc, params=doc))
 
-def index(doc, doc_id):    
+def old_index(doc, doc_id):    
     def index_term(lst):
         for ks in lst:
             for k in nltk.word_tokenize(ks):
@@ -162,28 +178,50 @@ def process_lrmi(envelope, mapping):
     #LRMI is json so no DOM stuff is needed
     url = envelope['resource_locator']
     resource_data = envelope.get('resource_data', {})
-    properties = resource_data.get('properties', {})
+    if 'items' in resource_data:
+	properties = resource_data['items'].pop().get('properties', {})
+    else:
+        properties = resource_data.get('properties', {})
     educational_alignment = properties.get('educationalAlignment', [{}]).pop()
     educational_alignment_properties = educational_alignment.get('properties', {})
     standards_names = educational_alignment_properties.get('targetName', [''])
     md5 = hashlib.md5()
     md5.update(envelope['resource_locator'])
     doc_id = md5.hexdigest()
-    keys = envelope['keys']
+    keys = []
+    keys.extend(envelope['keys'])
+    keys.extend(properties.get('about', []))
+    
     standards = []
     for ids in (mapping.get(standards_name.lower(), [standards_name.lower()]) for standards_name in standards_names):
         for s in ids:
             standards.append(s)
             #client.zrem(s, envelope['doc_ID'])
             #client.zadd(s, 1, doc_id)
+    identity = envelope['identity']
+    if 'publisher' in properties:
+        publisher = properties.get('publisher', []).pop().get('name')
+    elif 'submitter' in identity and 'owner' in identity:
+        publisher = "{0} on behalf of {1}".format(envelope['identity']['submitter'], envelope['identity']['owner'])
+    elif 'submitter' in identity:
+        publisher = identity['submitter']
+    else:
+        publisher = idenity.get('owenr')
+    name = properties.get('name')
+    if isinstance(name, list):
+	name = name.pop()
+    description = properties.get('description')
+    if isinstance(description, list):
+        description = description.pop()
+
     doc = {
         "url": envelope['resource_locator'],
         "keys": keys,
         "standards": standards,
-        "title": resource_data.get('name', '').decode('utf8'),
-        "description": resource_data.get('description', '').decode('utf8'),
+        "title": name,
+        "description": description,
         'hasScreenshot': False,
-        'publisher': envelope['identity']['submitter']
+        'publisher': publisher
     }
     try:
         return doc
@@ -286,6 +324,20 @@ def handle_keys_json_ld(node):
                 keys.append(node[k])
             elif isinstance(node[k], list):
                 keys.extend(node[k])
+    if "bookFormat" in node:
+        bookFormat = node['bookFormat']
+        #increment the rfind result by 1 to exclude the '/' character
+        f = bookFormat[bookFormat.rfind('/')+1:]
+        keys.append(f)
+    if "@id" in node:
+        url = node['@id']
+        parts = urlparse.urlparse(url)
+        qs = urlparse.parse_qs(parts.query)
+        if 'downloadFormat' in qs:
+            if isinstance(qs['downloadFormat'], str):
+                keys.append(qs['downloadFOrmat'])
+            else:
+                keys.extend(qs['downloadFormat'])
     return keys
 
 def handle_standards_json_ld(node, mapping):
@@ -307,10 +359,8 @@ def process_json_ld_graph(graph, mapping):
     media_features = []
     access_mode = []
     for node in graph:
-
         keys.extend(handle_keys_json_ld(node))
         standards.extend(handle_standards_json_ld(node, mapping))
-
         if 'accessMode' in node:
             accessMode = node['accessMode']
             if isinstance(accessMode, list):
@@ -323,8 +373,7 @@ def process_json_ld_graph(graph, mapping):
             if isinstance(media_feature, list):
                 media_features.extend(media_feature)
             else:
-                media_features.append(media_feature)
-        
+                media_features.append(media_feature)        
         if 'name' in node and 'title' not in data:
             data['title'] = node['name']
         if "description" in node and 'description' not in data:
@@ -427,6 +476,7 @@ def createRedisIndex(envelope, config):
         else:
            doc = process_generic(envelope)
         if doc:
+            doc['keys'].append(envelope.get('identity', {}).get("owner"))
             index(doc, doc_id)
     except Exception as ex:
         traceback.print_exc()

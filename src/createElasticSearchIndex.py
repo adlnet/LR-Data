@@ -3,6 +3,7 @@ import pyes
 from celeryconfig import config
 
 es = pyes.ES([("http", "localhost", "9200")])
+es.delete_index('lr')
 es.create_index_if_missing("lr")
 mapping = {
         "title": {
