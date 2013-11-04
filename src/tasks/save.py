@@ -34,7 +34,7 @@ def process_complex_keys(keys):
             parts = nltk.word_tokenize(k)
             new_keys.extend(parts)
         except:
-            print(k)
+            pass
     return new_keys
 
 def index(doc, doc_id):
@@ -51,7 +51,10 @@ def index(doc, doc_id):
                       'ctx._source.standards.add(key);'+\
                       '}'+\
                       '}'
-    doc['keys'] = process_complex_keys(doc.get('keys', []))
+    doc['keys'] = [x for x in process_complex_keys(doc.get('keys', [])) if x is not None]
+    if 'publisher' not in doc:
+        doc['publisher'] = None
+    print(doc)
     print(conn.partial_update(INDEX_NAME, DOC_TYPE, doc_id, update_function, upsert=doc, params=doc))
 
 def old_index(doc, doc_id):    
@@ -318,12 +321,17 @@ def handle_keys_json_ld(node):
     target_elements = ['inLanguage', 'isbn', 'provider', 
                        'learningResourceType', 'keywords', 
                        'educationalUse', 'author', "intendedUserRole"]
+    def handle_possible_dict(data):
+        if isinstance(data, dict):
+            return data.get('name')
+        return data
     for k in target_elements:
+
         if k in node:
             if isinstance(node[k], str):
-                keys.append(node[k])
+                keys.append(handle_possible_dict(node[k]))
             elif isinstance(node[k], list):
-                keys.extend(node[k])
+                keys.extend([handle_possible_dict(k) for k in node[k]])
     if "bookFormat" in node:
         bookFormat = node['bookFormat']
         #increment the rfind result by 1 to exclude the '/' character
@@ -352,6 +360,12 @@ def handle_standards_json_ld(node, mapping):
                     standards.extend(mapping.get(aln, aln))                    
     return standards
 
+def get_first_or_value(data, key, test):
+    if test(data[key]):
+        return data[key]
+    elif isinstance(data[key], list):
+        return data[key].pop()
+
 def process_json_ld_graph(graph, mapping):
     data = {}
     keys = []
@@ -367,7 +381,6 @@ def process_json_ld_graph(graph, mapping):
                 access_mode.extend(accessMode)
             else:
                 access_mode.append(accessMode)
-
         if 'mediaFeature' in node:
             media_feature = node['mediaFeature']
             if isinstance(media_feature, list):
@@ -375,11 +388,15 @@ def process_json_ld_graph(graph, mapping):
             else:
                 media_features.append(media_feature)        
         if 'name' in node and 'title' not in data:
-            data['title'] = node['name']
+            data['title'] = get_first_or_value(node, 'name', lambda x: isinstance(x, str) or isinstance(x, unicode))
+        else: 
+            data['title'] = ""
         if "description" in node and 'description' not in data:
-            data['description'] = node['description']
-        if 'publisher' in node and 'publisher' not in data:
-            pub = node['publisher']
+            data['description'] = get_first_or_value(node, 'description', lambda x: isinstance(x, str) or isinstance(x, unicode))
+        else: 
+            data['description'] = ""
+        if 'publisher' in node:
+            pub = get_first_or_value(node, 'publisher', lambda x: isinstance(x, dict))
             if isinstance(pub, dict):                
                 data['publisher'] = pub.get('name', '')
             else:
@@ -406,7 +423,7 @@ def process_json_ld(envelope, mapping):
     for k in ['keys', 'standards', 'accessMode', 'mediaFeatures']:
         data[k].extend(graph_data.get(k, []))
     for k in ['title', 'description', 'publisher']:
-        if k not in data and k in graph_data:
+        if k not in data and k in graph_data:            
             data[k] = graph_data[k]
     return data
 
@@ -467,9 +484,11 @@ def createRedisIndex(envelope, config):
             doc = process_lr_para(envelope, mapping)
         elif 'nsdl_dc' in schemas:
             doc = process_nsdl_dc(envelope, mapping)
-        elif 'lrmi' in schemas:
+        elif 'lrmi' in schemas and not "json-ld" in schemas:
             doc = process_lrmi(envelope, mapping)
         elif "bookshare.org json-ld" in schemas:
+            doc = process_json_ld(envelope, mapping)
+        elif "a11y-jsonld" in schemas or "json-ld" in schemas:
             doc = process_json_ld(envelope, mapping)
         elif "lom" in schemas:
             doc = process_lom(envelope, mapping)

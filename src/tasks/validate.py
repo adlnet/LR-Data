@@ -26,7 +26,6 @@ def translate_url(url_parts):
 
 @task(queue="validate")
 def checkWhiteList(envelope, config):
-    print(envelope['doc_ID'])
     bf = BloomFilter.open("filter.bloom")
     parts = urlparse(envelope['resource_locator'])
     r = redis.StrictRedis(host=config['redis']['host'],
@@ -37,11 +36,15 @@ def checkWhiteList(envelope, config):
     if parts.netloc == "3dr.adlnet.gov":
         envelope['resource_locator'] = translate_url(parts)
     if parts.netloc not in bf:
-        return
+        print('not in whitelist')
+        #return
     if parts.netloc in black_list:
-        return 
+        print('blacklist')
+        #return 
     try:
         resp = requests.get(envelope['resource_locator'])
+        print(envelope['resource_locator'])
+        print(resp.status_code)
         if resp.status_code not in good_codes:
             return 
     except Exception as ex:
