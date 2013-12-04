@@ -7,7 +7,7 @@ base_url = "http://asn.jesandco.org/resources/ASNJurisdiction/{0}"
 
 namespaces = {"dc": "http://purl.org/dc/elements/1.1/"}
 
-db = Database("http://admin:password@localhost:5984/standards")
+db = Database("http://localhost:5984/standards")
 
 states = {
         'AK': 'Alaska',
@@ -126,10 +126,8 @@ def process(state):
     process_doc(main_doc)
     add_doc(main_doc)
 
-
-#for state_num in states.keys():
-#    print(state_num)
-#    process(state_num)
+for state_num in states.keys():
+    process(state_num)
 
 title = "Common"
 main_doc = {
@@ -146,16 +144,16 @@ local_docs = [("Common Core Mathmatics", "math.json"),
               ("National Science Education Standards", "D10001D0_manifest.json"),
               ("NCTE/IRA Standards for the English Language Arts", "D10003BB_manifest.json"),
               ("Common Core English Language Arts", "english.json")]
-#for doc in local_docs:
-#    with open(doc[1], "r+") as f:
-#        local_data = json.load(f)
-#    d = {
-#        "title": doc[0],
-#        "children": local_data
-#    }
-#    main_doc['children'].append(d)
-#process_doc(main_doc)
-#add_doc(main_doc)
+for doc in local_docs:
+    with open(doc[1], "r+") as f:
+        local_data = json.load(f)
+    d = {
+        "title": doc[0],
+        "children": local_data
+    }
+    main_doc['children'].append(d)
+process_doc(main_doc)
+add_doc(main_doc)
 
 
 for doc in db:

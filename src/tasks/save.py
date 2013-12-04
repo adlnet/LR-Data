@@ -54,7 +54,7 @@ def index(doc, doc_id):
     doc['keys'] = [x for x in process_complex_keys(doc.get('keys', [])) if x is not None]
     if 'publisher' not in doc:
         doc['publisher'] = None
-    print(doc)
+    print(doc)    
     print(conn.partial_update(INDEX_NAME, DOC_TYPE, doc_id, update_function, upsert=doc, params=doc))
 
 def old_index(doc, doc_id):    
@@ -389,14 +389,10 @@ def process_json_ld_graph(graph, mapping):
                 media_features.append(media_feature)        
         if 'name' in node and 'title' not in data:
             data['title'] = get_first_or_value(node, 'name', lambda x: isinstance(x, str) or isinstance(x, unicode))
-        else: 
-            data['title'] = ""
         if "description" in node and 'description' not in data:
             data['description'] = get_first_or_value(node, 'description', lambda x: isinstance(x, str) or isinstance(x, unicode))
-        else: 
-            data['description'] = ""
         if 'publisher' in node:
-            pub = get_first_or_value(node, 'publisher', lambda x: isinstance(x, dict))
+            pub = get_first_or_value(node, 'publisher', lambda x: isinstance(x, str) or isinstance(x, unicode))
             if isinstance(pub, dict):                
                 data['publisher'] = pub.get('name', '')
             else:
