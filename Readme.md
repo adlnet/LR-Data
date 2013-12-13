@@ -2,11 +2,11 @@
 This is a small utility to help pull the data from the Learning Registry into a datastore of your choice.
 
 # Dependencies
-## LR-Data requires 
-###RabbitMQ
-###Redis
-###Python
-###Celery
+LR-Data requires: 
+* [RabbitMQ](http://www.rabbitmq.com/)
+* [Redis](http://redis.io/)
+* [Python](http://www.python.org/)
+* [Celery](http://www.celeryproject.org/)
 
 ### Platform-Specific Requirements:
 On OS X, you will also need `libevent`, which can be installed with homebrew: `brew install libevent`
