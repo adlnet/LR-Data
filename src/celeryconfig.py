@@ -1,6 +1,6 @@
 from datetime import timedelta
 config = {
-    "lrUrl": "http://sandbox.learningregistry.org/harvest/listrecords",
+    "lrUrl": "https://node01.public.learningregistry.net/harvest/listrecords",
     "couchdb": {
         "dbUrl": "http://localhost:5984/lr-data",
         "standardsDb": "http://localhost:5984/standards",

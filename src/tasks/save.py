@@ -20,7 +20,6 @@ from celery import group, chain, chord
 import pyes
 import csv
 log = get_default_logger()
-conn = pyes.ES([("http", "localhost", "9200")])
 db = couchdb.Database("http://localhost:5984/lr-data")
 r = redis.StrictRedis(host="localhost", port=6379, db=1)
 INDEX_NAME = "lr"
@@ -54,7 +53,7 @@ def index(doc, doc_id):
     doc['keys'] = [x for x in process_complex_keys(doc.get('keys', [])) if x is not None]
     if 'publisher' not in doc:
         doc['publisher'] = None
-    print(doc)    
+    conn = pyes.ES([("http", "localhost", "9200")])
     print(conn.partial_update(INDEX_NAME, DOC_TYPE, doc_id, update_function, upsert=doc, params=doc))
 
 def old_index(doc, doc_id):    
@@ -381,12 +380,21 @@ def process_json_ld_graph(graph, mapping):
                 access_mode.extend(accessMode)
             else:
                 access_mode.append(accessMode)
-        if 'mediaFeature' in node:
-            media_feature = node['mediaFeature']
-            if isinstance(media_feature, list):
-                media_features.extend(media_feature)
+        for feature in ['accessibilityFeature', 'mediaFeature']:
+            if  feature in node:
+                mediaFeature = node[feature]
+                if isinstance(mediaFeature, list):
+                    media_features.extend(mediaFeature)
+                else:
+                    media_features.append(mediaFeature)
+        if '@type' in node:
+            t = node['@type']
+            print(t)
+            if '/' in t:
+                type_value = t[t.rfind('/')+1:].lower()
+                keys.append(type_value)
             else:
-                media_features.append(media_feature)        
+                keys.append(t)
         if 'name' in node and 'title' not in data:
             data['title'] = get_first_or_value(node, 'name', lambda x: isinstance(x, str) or isinstance(x, unicode))
         if "description" in node and 'description' not in data:
