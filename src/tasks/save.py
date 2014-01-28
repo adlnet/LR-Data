@@ -49,6 +49,16 @@ def index(doc, doc_id):
                       'if(!ctx._source.standards.contains(key)){'+\
                       'ctx._source.standards.add(key);'+\
                       '}'+\
+                      '}'+\
+                      'for(String key: mediaFeatures){'+\
+                      'if(!ctx._source.mediaFeatures.contains(key)){'+\
+                      'ctx._source.mediaFeatures.add(key);'+\
+                      '}'+\
+                      '}'+\
+                      'for(String key: accessMode){'+\
+                      'if(!ctx._source.accessMode.contains(key)){'+\
+                      'ctx._source.accessMode.add(key);'+\
+                      '}'+\
                       '}'
     doc['keys'] = [x for x in process_complex_keys(doc.get('keys', [])) if x is not None]
     if 'publisher' not in doc:
@@ -383,13 +393,13 @@ def process_json_ld_graph(graph, mapping):
         for feature in ['accessibilityFeature', 'mediaFeature']:
             if  feature in node:
                 mediaFeature = node[feature]
+                print(mediaFeature)
                 if isinstance(mediaFeature, list):
                     media_features.extend(mediaFeature)
                 else:
                     media_features.append(mediaFeature)
         if '@type' in node:
             t = node['@type']
-            print(t)
             if '/' in t:
                 type_value = t[t.rfind('/')+1:].lower()
                 keys.append(type_value)
