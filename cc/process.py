@@ -99,14 +99,15 @@ def process_doc(doc):
 def add_doc(main_doc):
     if main_doc['_id'] in db:
         del db[main_doc['_id']]
-    print(db.save(main_doc))
+    db.save(main_doc)
 
 
 def process(state):
     d = pq(url=base_url.format(state))
-    title = state
+    title = states[state]
+    print("Processing Common Core Standards for " + title)
     main_doc = {
-        "_id": title,
+        "_id": state,
         "description": title,
         "title": title,
         "children": []
@@ -154,11 +155,3 @@ for doc in local_docs:
     main_doc['children'].append(d)
 process_doc(main_doc)
 add_doc(main_doc)
-
-
-for doc in db:
-    print(doc)
-    d = db[doc]    
-    process_doc(d)
-    print(d['count'])
-    db.save(d)
