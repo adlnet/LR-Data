@@ -61,9 +61,9 @@ def index(doc, doc_id):
                       '}'+\
                       '}'
     doc['keys'] = [x for x in process_complex_keys(doc.get('keys', [])) if x is not None]
-    if 'publisher' not in doc:
-        doc['publisher'] = None
-    conn = pyes.ES([("http", "localhost", "9200")])
+    for k, v in [('publisher', None), ('mediaFeatures', []), ('accessMode', []), ("description", None)]:
+        if k not in doc:
+            doc[k] = v
     print(conn.partial_update(INDEX_NAME, DOC_TYPE, doc_id, update_function, upsert=doc, params=doc))
 
 def old_index(doc, doc_id):    
