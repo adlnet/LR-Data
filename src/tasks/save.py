@@ -21,6 +21,8 @@ import pyes
 import csv
 log = get_default_logger()
 db = couchdb.Database("http://localhost:5984/lr-data")
+conn = pyes.ES([("http", "localhost", "9200")])
+
 r = redis.StrictRedis(host="localhost", port=6379, db=1)
 INDEX_NAME = "lr"
 DOC_TYPE = "lr_doc"
