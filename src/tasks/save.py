@@ -1,4 +1,5 @@
 import couchdb
+import json
 from pprint import pprint
 import traceback
 import urlparse
@@ -66,7 +67,8 @@ def index(doc, doc_id):
     for k, v in [('publisher', None), ('mediaFeatures', []), ('accessMode', []), ("description", None)]:
         if k not in doc:
             doc[k] = v
-    print(conn.partial_update(INDEX_NAME, DOC_TYPE, doc_id, update_function, upsert=doc, params=doc))
+    pprint(doc)
+    conn.partial_update(INDEX_NAME, DOC_TYPE, doc_id, update_function, upsert=doc, params=doc)
 
 def old_index(doc, doc_id):    
     def index_term(lst):
@@ -193,10 +195,16 @@ def process_lrmi(envelope, mapping):
     url = envelope['resource_locator']
     resource_data = envelope.get('resource_data', {})
     if 'items' in resource_data:
-	properties = resource_data['items'].pop().get('properties', {})
+    	properties = resource_data['items'].pop().get('properties', {})
     else:
         properties = resource_data.get('properties', {})
-    educational_alignment = properties.get('educationalAlignment', [{}]).pop()
+    if not properties:
+        properties = resource_data
+    educational_alignment = properties.get('educationalAlignment', [{}])
+    if len(educational_alignment) > 0:
+        educational_alignment = educational_alignment.pop()
+    else:
+        educational_alignment = {}
     educational_alignment_properties = educational_alignment.get('properties', {})
     standards_names = educational_alignment_properties.get('targetName', [''])
     md5 = hashlib.md5()
@@ -214,7 +222,11 @@ def process_lrmi(envelope, mapping):
             #client.zadd(s, 1, doc_id)
     identity = envelope['identity']
     if 'publisher' in properties:
-        publisher = properties.get('publisher', []).pop().get('name')
+        publisher = properties.get('publisher', [])
+        if isinstance(publisher, list):
+            publisher = publisher.pop()
+        if isinstance(publisher, dict):
+            publisher = publisher.get('name')
     elif 'submitter' in identity and 'owner' in identity:
         publisher = "{0} on behalf of {1}".format(envelope['identity']['submitter'], envelope['identity']['owner'])
     elif 'submitter' in identity:
@@ -223,7 +235,7 @@ def process_lrmi(envelope, mapping):
         publisher = idenity.get('owenr')
     name = properties.get('name')
     if isinstance(name, list):
-	name = name.pop()
+	   name = name.pop()
     description = properties.get('description')
     if isinstance(description, list):
         description = description.pop()
@@ -395,7 +407,6 @@ def process_json_ld_graph(graph, mapping):
         for feature in ['accessibilityFeature', 'mediaFeature']:
             if  feature in node:
                 mediaFeature = node[feature]
-                print(mediaFeature)
                 if isinstance(mediaFeature, list):
                     media_features.extend(mediaFeature)
                 else:
@@ -501,6 +512,9 @@ def createRedisIndex(envelope, config):
         elif 'nsdl_dc' in schemas:
             doc = process_nsdl_dc(envelope, mapping)
         elif 'lrmi' in schemas and not "json-ld" in schemas:
+            if isinstance(envelope['resource_data'], str) or isinstance(envelope['resource_data'], unicode):
+                envelope['resource_data'] = json.loads(envelope['resource_data'])
+                pprint(envelope['resource_data'])
             doc = process_lrmi(envelope, mapping)
         elif "bookshare.org json-ld" in schemas:
             doc = process_json_ld(envelope, mapping)

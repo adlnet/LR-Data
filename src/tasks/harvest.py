@@ -36,6 +36,7 @@ def startHarvest(config):
                             urlParts[3],
                             newQuery,
                             urlParts[5]))
+        print(lrUrl)
         harvestData.delay(lrUrl, config)
     except Exception as ex:
         traceback.print_exc()
@@ -47,7 +48,7 @@ def harvestData(lrUrl, config):
     try:
         r = redis.StrictRedis(host=config['redis']['host'],
                               port=config['redis']['port'],
-                              db=config['redis']['db'])
+                              db=config['redis']['db'])        
         resp = urllib2.urlopen(lrUrl)
         data = json.load(resp)
         for i in data['listrecords']:
