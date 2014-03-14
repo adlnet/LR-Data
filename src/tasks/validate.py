@@ -2,7 +2,7 @@ from celery.task import task
 from .save import createRedisIndex
 from celery.log import get_default_logger
 log = get_default_logger()
-from pybloomfilter import BloomFilter
+#from pybloomfilter import BloomFilter
 from urlparse import urlparse, urlunparse
 from urllib import urlencode
 import requests
@@ -26,7 +26,7 @@ def translate_url(url_parts):
 
 @task(queue="validate")
 def checkWhiteList(envelope, config):
-    bf = BloomFilter.open("filter.bloom")
+    #bf = BloomFilter.open("filter.bloom")
     parts = urlparse(envelope['resource_locator'])
     r = redis.StrictRedis(host=config['redis']['host'],
                           port=config['redis']['port'],
@@ -35,8 +35,7 @@ def checkWhiteList(envelope, config):
         return
     if parts.netloc == "3dr.adlnet.gov":
         envelope['resource_locator'] = translate_url(parts)
-    if parts.netloc not in bf:
-        print('not in whitelist')
+    #if parts.netloc not in bf:
         #return
     if parts.netloc in black_list:
         print('blacklist')

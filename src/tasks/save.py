@@ -1,32 +1,31 @@
-import couchdb
 import json
 from pprint import pprint
 import traceback
+from collections import namedtuple
 import urlparse
 from celery.task import task
 from celery.log import get_default_logger
 import redis
 import nltk
-from nltk.stem.snowball import PorterStemmer
 import requests
 import urllib2
 import hashlib
 import urlparse
 from lxml import etree
 from StringIO import StringIO
-import subprocess
 from BeautifulSoup import BeautifulSoup
 import os
-from celery import group, chain, chord
 import pyes
 import csv
+
 log = get_default_logger()
-db = couchdb.Database("http://localhost:5984/lr-data")
 conn = pyes.ES([("http", "localhost", "9200")])
 
-r = redis.StrictRedis(host="localhost", port=6379, db=1)
+r = redis.StrictRedis(host="localhost", port=6379, db=0)
 INDEX_NAME = "lr"
 DOC_TYPE = "lr_doc"
+
+IndexInfo = namedtuple("IndexInfo", ["key", "value", "identifier"])
 
 def process_complex_keys(keys):
     new_keys = []
@@ -69,35 +68,7 @@ def index(doc, doc_id):
             doc[k] = v
     pprint(doc)
     conn.partial_update(INDEX_NAME, DOC_TYPE, doc_id, update_function, upsert=doc, params=doc)
-
-def old_index(doc, doc_id):    
-    def index_term(lst):
-        for ks in lst:
-            for k in nltk.word_tokenize(ks):
-                rank = 0.25
-                if k in doc.get('title', ''):
-                    rank *= 8
-                elif k in doc.get('description', ''):
-                    rank *= 4
-                print("Rank: {0} -- Total: {1}".format(rank, r.zincrby(k.lower(), doc_id, rank)))
-    doc['_id'] = doc_id
     
-    try:
-        print(db.save(doc))
-    except:
-        traceback.print_exc()
-    for k in ['keys', 'standards', 'accessMode', 'mediaFeatures']:
-        try:
-            index_term(doc.get(k, []))
-        except:
-            pass
-    for k in ['publisher', 'title', 'description']:
-        try:
-            index_term([doc.get(k)])
-        except:
-            pass
-    
-
 
 def get_html_display(url, publisher):
     try: 
@@ -496,46 +467,60 @@ def load_standards(file_name):
                         mapping[key].append(item2.lower())
     return mapping
         
+def index_netloc(url, url_parts):
+    yield IndexInfo(key=url_parts.netloc, value=1, identifier=url)
+
+def index_path(url, url_parts):
+    for segment in url_parts.path.split('/'):
+        yield IndexInfo(key=segment, value=1, identifier=url)
+
+def index_query(url, url_parts):
+    for k,vs in urlparse.parse_qs(url_parts.query).iteritems():        
+        yield IndexInfo(key=k, value=1, identifier=url)
+        for v in vs:
+            yield IndexInfo(key=v, value=1, identifier=url)
+            yield IndexInfo(key="{0}={1}".format(k,v), value=1, identifier=url)
+
 @task(queue="save")
 def createRedisIndex(envelope, config):
-    md5 = hashlib.md5()
-    md5.update(envelope.get('resource_locator'))   
-    doc_id = md5.hexdigest()
-    save_image.delay(envelope.get('resource_locator'))
-    #normalize casing on all the schemas in the payload_schema array, if payload_schema isn't present use an empty array
-    schemas = {schema.lower() for schema in envelope.get('payload_schema', [])}
-    mapping = load_standards("mapping.csv")
-    try:
-        doc = None
-        if "lr paradata 1.0" in schemas:
-            doc = process_lr_para(envelope, mapping)
-        elif 'nsdl_dc' in schemas:
-            doc = process_nsdl_dc(envelope, mapping)
-        elif 'lrmi' in schemas and not "json-ld" in schemas:
-            if isinstance(envelope['resource_data'], str) or isinstance(envelope['resource_data'], unicode):
-                envelope['resource_data'] = json.loads(envelope['resource_data'])
-                pprint(envelope['resource_data'])
-            doc = process_lrmi(envelope, mapping)
-        elif "bookshare.org json-ld" in schemas:
-            doc = process_json_ld(envelope, mapping)
-        elif "a11y-jsonld" in schemas or "json-ld" in schemas:
-            doc = process_json_ld(envelope, mapping)
-        elif "lom" in schemas:
-            doc = process_lom(envelope, mapping)
-        else:
-           doc = process_generic(envelope)
-        if doc:
-            doc['keys'].append(envelope.get('identity', {}).get("owner"))
-            index(doc, doc_id)
-    except Exception as ex:
-        traceback.print_exc()
-
-
-@task(queue="image")
-def save_image(url):
-    m = hashlib.md5()
-    m.update(url)
-    couchdb_id = m.hexdigest()
-#    p = subprocess.Popen(" ".xvfb-run", "--auto-servernum", "--server-num=1", "python", "screenshots.py", url, couchdb_id]), shell=True, cwd=os.getcwd(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-#    filename = p.communicate()
- #   print(filename)
+    url = envelope['resource_locator']
+    url_parts = urlparse.urlparse(url)    
+    generators = [index_netloc, index_path, index_query]
+    for func in generators:
+        for index_tuple in func(url, url_parts):
+            r.zadd(*index_tuple)
+    # md5 = hashlib.md5()
+    # md5.update(envelope.get('resource_locator'))   
+    # doc_id = md5.hexdigest()    
+    # #normalize casing on all the schemas in the payload_schema array, if payload_schema isn't present use an empty array
+    # schemas = {schema.lower() for schema in envelope.get('payload_schema', [])}
+    # mapping = load_standards("mapping.csv")
+    # try:
+    #     doc = None
+    #     if "lr paradata 1.0" in schemas:
+    #         if isinstance(envelope['resource_data'], str) or isinstance(envelope['resource_data'], unicode):
+    #             envelope['resource_data'] = json.loads(envelope['resource_data'])            
+    #         doc = process_lr_para(envelope, mapping)
+    #     elif 'nsdl_dc' in schemas:
+    #         doc = process_nsdl_dc(envelope, mapping)
+    #     elif 'lrmi' in schemas and not "json-ld" in schemas:
+    #         if isinstance(envelope['resource_data'], str) or isinstance(envelope['resource_data'], unicode):
+    #             envelope['resource_data'] = json.loads(envelope['resource_data'])
+    #         doc = process_lrmi(envelope, mapping)
+    #     elif "bookshare.org json-ld" in schemas:
+    #         if isinstance(envelope['resource_data'], str) or isinstance(envelope['resource_data'], unicode):
+    #             envelope['resource_data'] = json.loads(envelope['resource_data'])            
+    #         doc = process_json_ld(envelope, mapping)
+    #     elif "a11y-jsonld" in schemas or "json-ld" in schemas:
+    #         if isinstance(envelope['resource_data'], str) or isinstance(envelope['resource_data'], unicode):
+    #             envelope['resource_data'] = json.loads(envelope['resource_data'])            
+    #         doc = process_json_ld(envelope, mapping)
+    #     elif "lom" in schemas:
+    #         doc = process_lom(envelope, mapping)
+    #     else:
+    #        doc = process_generic(envelope)
+    #     if doc:
+    #         doc['keys'].append(envelope.get('identity', {}).get("owner"))
+    #         index(doc, doc_id)
+    # except Exception as ex:
+    #     traceback.print_exc()
