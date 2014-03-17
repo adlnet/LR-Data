@@ -24,24 +24,18 @@ def get_keys(url, url_parts):
         for index_tuple in func(url, url_parts):
             yield index_tuple.key
 
+def main():
+    client = redis.StrictRedis(host="localhost", port=6379, db=0)
+    test_url = "http://www.purplemath.com/modules/ratio.htm"
+    parts = urlparse.urlparse(test_url)
+    keys = list(get_keys(test_url, parts))
+    client.delete("union_result")
+    client.zunionstore("union_result", keys)
+    client.delete("final_result")
+    client.zinterstore("final_result", [parts.netloc, "union_result"])
+    results = client.zrange("final_result", 0, 10, desc=True, withscores=True)
+    for r in results:
+        print(r)
 
-client = redis.StrictRedis(host="localhost", port=6379, db=0)
-
-test_url = "http://www.uciteljska.net/ucit_dl.php?id=86"
-
-parts = urlparse.urlparse(test_url)
-
-keys = list(get_keys(test_url, parts))
-
-client.delete("union_result")
-
-client.zunionstore("union_result", keys)
-
-client.delete("final_result")
-
-client.zinterstore("final_result", [parts.netloc, "union_result"])
-
-results = client.zrange("final_result", 0, 10, desc=True, withscores=True)
-
-for r in results:
-    print(r)
+if __name__ == "__main__":
+    main()

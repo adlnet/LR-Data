@@ -17,7 +17,7 @@ from BeautifulSoup import BeautifulSoup
 import os
 import pyes
 import csv
-
+import re
 log = get_default_logger()
 conn = pyes.ES([("http", "localhost", "9200")])
 
@@ -26,6 +26,12 @@ INDEX_NAME = "lr"
 DOC_TYPE = "lr_doc"
 
 IndexInfo = namedtuple("IndexInfo", ["key", "value", "identifier"])
+
+english_words = None
+
+with open("/usr/share/dict/american-english") as f:
+    english_words = {word.replace("\n", "").lower() for word in f}
+        
 
 def process_complex_keys(keys):
     new_keys = []
@@ -467,19 +473,32 @@ def load_standards(file_name):
                         mapping[key].append(item2.lower())
     return mapping
         
+def rank_value(key):
+    test = re.compile("[0-9]+")
+    id_query_test = re.compile(".*id.*=.+")
+    key = key.lower()
+    if id_query_test.search(key):
+        return 1
+    if test.search(key):
+        return 1
+    if key not in english_words:
+        return 1
+    return 0.5
+
 def index_netloc(url, url_parts):
-    yield IndexInfo(key=url_parts.netloc, value=1, identifier=url)
+    yield IndexInfo(key=url_parts.netloc, value=rank_value(url_parts.netloc), identifier=url)
 
 def index_path(url, url_parts):
     for segment in url_parts.path.split('/'):
-        yield IndexInfo(key=segment, value=1, identifier=url)
+        yield IndexInfo(key=segment, value=rank_value(segment), identifier=url)
 
 def index_query(url, url_parts):
     for k,vs in urlparse.parse_qs(url_parts.query).iteritems():        
-        yield IndexInfo(key=k, value=1, identifier=url)
+        yield IndexInfo(key=k, value=rank_value(k), identifier=url)
         for v in vs:
-            yield IndexInfo(key=v, value=1, identifier=url)
-            yield IndexInfo(key="{0}={1}".format(k,v), value=1, identifier=url)
+            yield IndexInfo(key=v, value=rank_value(v), identifier=url)
+            query_key = "{0}={1}".format(k,v)
+            yield IndexInfo(key=query_key, value=rank_value(query_key), identifier=url)
 
 @task(queue="save")
 def createRedisIndex(envelope, config):
