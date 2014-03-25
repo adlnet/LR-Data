@@ -39,8 +39,7 @@ def checkWhiteList(envelope, config):
         print('not in whitelist')
         #return
     if parts.netloc in black_list:
-        print('blacklist')
-        #return 
+        return 
     try:
         resp = requests.get(envelope['resource_locator'])
         print(envelope['resource_locator'])
