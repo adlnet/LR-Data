@@ -24,16 +24,21 @@ class DisplayTests(unittest.TestCase):
         key = "video"
         result = rank_value(key)
         assert result == 0.5
+        result = rank_value("abc123")
+        assert result == 1
+
 
     def test_ranking(self):
         test_url = "http://www.khanacademy.org/video/z-statistics-vs--t-statistics?playlist=Statistics"
         parts = urlparse.urlparse(test_url)
+        score = 0
         for p in index_netloc(test_url, parts):
-            pass
+            print(p)
         for p in index_path(test_url, parts):
-            pass
+            print(p)
         for p in index_query(test_url, parts):
-            pass
+            print(p)
+        print(score)
 
 if __name__ == "__main__":
     unittest.main()

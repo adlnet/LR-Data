@@ -71,8 +71,7 @@ def index(doc, doc_id):
     doc['keys'] = [x for x in process_complex_keys(doc.get('keys', [])) if x is not None]
     for k, v in [('publisher', None), ('mediaFeatures', []), ('accessMode', []), ("description", None)]:
         if k not in doc:
-            doc[k] = v
-    pprint(doc)
+            doc[k] = v    
     conn.partial_update(INDEX_NAME, DOC_TYPE, doc_id, update_function, upsert=doc, params=doc)
     
 
@@ -490,7 +489,8 @@ def index_netloc(url, url_parts):
 
 def index_path(url, url_parts):
     for segment in url_parts.path.split('/'):
-        yield IndexInfo(key=segment, value=rank_value(segment), identifier=url)
+        if len(segment) > 0:
+            yield IndexInfo(key=segment, value=rank_value(segment), identifier=url)
 
 def index_query(url, url_parts):
     for k,vs in urlparse.parse_qs(url_parts.query).iteritems():        
