@@ -374,7 +374,7 @@ def handle_keys_json_ld(node):
 def handle_standards_json_ld(node, mapping):
     standards = []
     if 'educationalAlignment' in node:
-        alignments = (n['targetName'] for n in node['educationalAlignment'] if 'targetName' in n and n.get('educationalFramework','').lower().strip() == "common core state standards")
+        alignments = (n['targetName'] for n in node['educationalAlignment'] if 'targetName' in n)
         for alignment in alignments:
             if isinstance(alignment, str):
                 standards.extend(mapping.get(alignment, alignment))
@@ -514,7 +514,6 @@ def createRedisIndex(envelope, config):
         elif 'lrmi' in schemas and not "json-ld" in schemas:
             if isinstance(envelope['resource_data'], str) or isinstance(envelope['resource_data'], unicode):
                 envelope['resource_data'] = json.loads(envelope['resource_data'])
-                pprint(envelope['resource_data'])
             doc = process_lrmi(envelope, mapping)
         elif "bookshare.org json-ld" in schemas:
             doc = process_json_ld(envelope, mapping)
