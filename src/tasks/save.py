@@ -376,10 +376,10 @@ def handle_standards_json_ld(node, mapping):
     if 'educationalAlignment' in node:
         alignments = (n['targetName'] for n in node['educationalAlignment'] if 'targetName' in n)
         for alignment in alignments:
-            if isinstance(alignment, str):
-                standards.extend(mapping.get(alignment, alignment))
+            if isinstance(alignment, str) or isinstance(alignment, unicode):
+                standards.extend(mapping.get(alignment, mapping.get(alignment.lower(), alignment)))
             elif isinstance(alignment, list):
-                for aln in alignment:
+                for aln in alignment:   
                     standards.extend(mapping.get(aln, aln))                    
     return standards
 
